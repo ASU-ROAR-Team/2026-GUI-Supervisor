@@ -1,0 +1,14 @@
+nodes:
+  perception_node: "ros2 run supervisor my_first_node"
+  navigation_node: "ros2 run supervisor my_second_node"
+  maintenance_node: "ros2 run supervisor my_third_node"
+  camera_driver: "ros2 run usb_cam usb_cam_node_exe" # Example of adding real hardware nodes
+
+missions:
+  perception:
+    - perception_node
+    - camera_driver
+  navigation:
+    - navigation_node
+  maintenance:
+    - maintenance_node

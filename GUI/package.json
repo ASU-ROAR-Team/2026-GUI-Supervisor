@@ -1,0 +1,19 @@
+{
+  "name": "rover-monitoring",
+  "version": "1.0.0",
+  "description": "Real-time Rover Monitoring with OpenMCT and ROS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "clean": "rm -rf node_modules package-lock.json"
+  },
+  "author": "Your Name sofagharably@gmail.com",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.22.1",
+    "html2canvas": "^1.4.1",
+    "openmct": "^4.1.0",
+    "rclnodejs": "^1.7.0",
+    "ws": "^8.18.3"
+  }
+}

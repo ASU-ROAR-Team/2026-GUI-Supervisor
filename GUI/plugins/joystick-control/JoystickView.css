@@ -1,0 +1,167 @@
+/* src/plugins/joystick-control/JoystickView.css */
+
+/* Main container for the entire joystick interface */
+.rover-joystick-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Center horizontally */
+    justify-content: flex-start; /* Align content to the top within the container */
+    padding: 8px;
+    background-color: var(--background-color--lvl3); /* Use OpenMCT's background variable */
+    border-radius: 6px;
+    box-shadow: var(--shadow-small); /* Use OpenMCT's shadow variable */
+    font-family: 'Inter', sans-serif; /* Consistent font */
+    color: var(--color-text); /* Use OpenMCT's text color variable */
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    overflow: auto;
+    font-size: 0.85em;
+    gap: 15px; /* Spacing between main elements */
+}
+
+/* Wrapper for the joystick canvas to control its size and positioning */
+.joystick-canvas-wrapper {
+    width: 150px; /* Fixed width for the joystick area */
+    height: 150px; /* Fixed height for the joystick area (making it square) */
+    position: relative; /* Needed for any absolute positioning within */
+    border-radius: 50%;
+    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3); /* Inset shadow for depth */
+    background-color: var(--background-color--lvl2); /* Slightly lighter background for the base */
+    display: flex; /* Use flex to center the canvas */
+    justify-content: center;
+    align-items: center;
+}
+
+/* The actual HTML Canvas element */
+#joystickCanvas {
+    background-color: transparent; /* Canvas drawing handles its own background */
+    border: 1px solid var(--border-color--light); /* Light border */
+    border-radius: 50%; /* Make it circular */
+    cursor: grab; /* Default cursor for grabbing */
+    touch-action: none; /* Prevents touch-scrolling/panning on the canvas */
+    width: 100%; /* Canvas fills its wrapper */
+    height: 100%; /* Canvas fills its wrapper */
+}
+
+/* Cursor change when actively dragging */
+#joystickCanvas:active {
+    cursor: grabbing;
+}
+
+/* Status message for ROS connection and mission state */
+.joystick-status {
+    font-size: 0.75em;
+    color: var(--color-text--light); /* Light text color */
+    margin-top: -10px; /* Pull it slightly closer to the joystick */
+    text-align: center;
+}
+
+/* Status: Connected to ROS */
+.joystick-status.connected {
+    color: var(--color-success); /* Green for connected */
+}
+
+/* Status: Error or Disconnected */
+.joystick-status.error {
+    color: var(--color-error); /* Red for error */
+}
+
+/* Container for speed control sliders */
+.speed-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px; /* Space between slider groups */
+    width: 95%; /* Take up most of the container width */
+    max-width: 280px; /* Max width for larger screens */
+}
+
+/* Individual slider group (label + slider + value) */
+.speed-slider-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* Align label/slider to the left */
+    gap: 4px; /* Space between label and slider */
+}
+
+/* Slider labels */
+.speed-slider-group label {
+    font-size: 0.85em;
+    font-weight: bold;
+    color: var(--color-text);
+}
+
+/* Input range (slider track) */
+.speed-slider-group input[type="range"] {
+    width: 100%;
+    -webkit-appearance: none; /* Remove default browser styling for WebKit browsers */
+    height: 5px;
+    background: var(--border-color--dark); /* Darker color for the slider track */
+    outline: none;
+    border-radius: 2px;
+    transition: opacity .2s;
+}
+
+/* Slider thumb (for WebKit browsers) */
+.speed-slider-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #f84632; /* Accent color for the thumb */
+    cursor: pointer;
+    box-shadow: var(--shadow-small);
+}
+
+/* Slider thumb (for Mozilla Firefox) */
+.speed-slider-group input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #f84632; /* Accent color for the thumb */
+    cursor: pointer;
+    box-shadow: var(--shadow-small);
+}
+
+/* Display for slider values */
+.speed-value {
+    font-weight: bold;
+    color: #f84632; /* Accent color for values */
+    margin-left: 2px;
+    font-size: 0.85em;
+}
+
+/* Informational message below the controls */
+.joystick-info-message {
+    text-align: center;
+    font-size: 0.8em;
+    color: var(--color-text--light);
+    margin-top: 5px;
+    padding: 0 10px;
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 768px) {
+    .joystick-canvas-wrapper {
+        width: 130px;
+        height: 130px;
+    }
+    .rover-joystick-container {
+        padding: 6px;
+        font-size: 0.8em;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .joystick-canvas-wrapper {
+        width: 100px;
+        height: 100px;
+    }
+    .rover-joystick-container {
+        font-size: 0.75em;
+        padding: 4px;
+        gap: 8px;
+    }
+}

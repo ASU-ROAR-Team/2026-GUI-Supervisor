@@ -1,0 +1,16 @@
+FROM ros:humble-ros-base
+
+# Clean Ubuntu 22.04 + ROS2 Humble, but no Node.js/npm or python websockets package.
+# We will use this to test our start_gui.sh script in an isolated sandbox.
+
+# Set work directory
+WORKDIR /app
+
+# Copy all GUI files into the container
+COPY . /app
+
+# Ensure start_gui.sh is executable
+RUN chmod +x /app/start_gui.sh
+
+# Run start_gui.sh
+CMD ["/bin/bash", "/app/start_gui.sh"]

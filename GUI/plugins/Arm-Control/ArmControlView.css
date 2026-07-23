@@ -1,0 +1,513 @@
+/* src/plugins/Arm-Control/ArmControlView.css */
+
+/* Main container for the entire arm control interface */
+.arm-control-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 20px;
+    background-color: #f9fafb;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    font-family: 'Inter', sans-serif;
+    color: #333;
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: auto;
+    gap: 20px;
+}
+
+/* Style for section headers */
+.section-header {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: #1a202c;
+}
+
+/* Status bar for ROS connection and mode switch button */
+.status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 800px;
+    background-color: #fff;
+    padding: 10px 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    font-weight: bold;
+    color: #333;
+}
+
+.status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #ccc;
+    margin-right: 10px;
+}
+
+.status-dot.connected {
+    background-color: #4caf50;
+}
+
+.status-dot.error {
+    background-color: #f44336;
+}
+
+#joystickStatus {
+    flex-grow: 1;
+    text-align: left;
+    font-size: 0.9em;
+}
+
+/* Mode switch button styling */
+#modeSwitchButton {
+    background-color: #f39c12;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+#modeSwitchButton:hover {
+    background-color: #e67e22;
+    transform: translateY(-1px);
+}
+
+/* Layout for sliders and pose controls */
+.controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 20px;
+    width: 100%;
+    max-width: 900px;
+}
+
+/* Individual container for joint sliders (FK) */
+.joint-control {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 15px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.joint-control p {
+    font-size: 0.9em;
+    color: #666;
+}
+
+.joint-slider-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.joint-slider-container span {
+    width: 60px;
+    text-align: right;
+}
+
+/* Individual container for pose controls (IK) */
+.pose-control {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 15px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.pose-control p {
+    font-size: 0.9em;
+    color: #666;
+    margin: 0;
+}
+
+/* Custom slider styling */
+input[type="range"] {
+    flex-grow: 1;
+    -webkit-appearance: none;
+    width: 100%;
+    height: 8px;
+    background: #e0e0e0;
+    outline: none;
+    opacity: 0.7;
+    -webkit-transition: .2s;
+    transition: opacity .2s;
+    border-radius: 4px;
+}
+
+input[type="range"]:hover {
+    opacity: 1;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #4a90e2;
+    cursor: pointer;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+input[type="range"]:disabled::-webkit-slider-thumb {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* Pose control styling */
+.pose-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pose-item strong {
+    width: 20px;
+}
+
+.pose-item span {
+    width: 60px;
+    text-align: right;
+    font-weight: bold;
+    color: #4a90e2;
+}
+
+.pose-button {
+    width: 35px;
+    height: 35px;
+    font-weight: bold;
+    background-color: #4a90e2;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.pose-button:hover:not(:disabled) {
+    background-color: #357bd8;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.pose-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* ─── NEW: Relative Motion Panel ─── */
+.relative-move-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 15px;
+    background-color: #f9fafb;
+    border-left: 4px solid #4a90e2;
+    border-radius: 8px;
+}
+
+.relative-title {
+    font-size: 1em;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0 0 10px 0;
+}
+
+/* Direction Controls */
+.direction-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+
+.direction-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.dir-btn {
+    width: 60px;
+    height: 50px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.dir-btn:hover {
+    background-color: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dir-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Distance Input */
+.distance-input-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.distance-input-container label {
+    font-weight: 600;
+    font-size: 0.9em;
+    color: #333;
+}
+
+.distance-input-container input {
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.9em;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.quick-distance-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+.quick-dist-btn {
+    flex: 1;
+    padding: 6px;
+    background-color: #ecf0f1;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.quick-dist-btn:hover {
+    background-color: #d5dbdb;
+    border-color: #95a5a6;
+}
+
+.quick-dist-btn:active {
+    background-color: #bdc3c7;
+}
+
+/* Command Preview */
+.command-preview {
+    padding: 10px;
+    background-color: #fff;
+    border: 1px solid #ecf0f1;
+    border-radius: 6px;
+    border-left: 3px solid #f39c12;
+}
+
+.command-preview strong {
+    display: block;
+    font-size: 0.9em;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.preview-text {
+    font-size: 0.95em;
+    color: #555;
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+}
+
+/* Execute Button */
+.execute-button {
+    padding: 10px 20px;
+    background-color: #27ae60;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    width: 100%;
+}
+
+.execute-button:hover {
+    background-color: #229954;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+}
+
+.execute-button:active {
+    transform: translateY(0);
+}
+
+/* Current Pose Display */
+.current-pose-display {
+    padding: 10px;
+    background-color: #eef9ff;
+    border: 1px solid #d6eef8;
+    border-radius: 6px;
+}
+
+.current-pose-display strong {
+    display: block;
+    font-size: 0.9em;
+    color: #333;
+    margin-bottom: 6px;
+}
+
+.pose-values {
+    display: flex;
+    justify-content: space-around;
+    gap: 10px;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: #4a90e2;
+}
+
+/* Control Strip (Lock/Home/Unlock) */
+.control-strip {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.control-strip-btn {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.lock-btn {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.lock-btn:hover {
+    background-color: #c0392b;
+    transform: translateY(-1px);
+}
+
+.home-btn {
+    background-color: #f39c12;
+    color: white;
+}
+
+.home-btn:hover {
+    background-color: #e67e22;
+    transform: translateY(-1px);
+}
+
+.unlock-btn {
+    background-color: #27ae60;
+    color: white;
+}
+
+.unlock-btn:hover {
+    background-color: #229954;
+    transform: translateY(-1px);
+}
+
+/* Preset buttons container */
+.preset-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 900px;
+}
+
+.preset-button {
+    background-color: #3498db;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.preset-button:hover:not(:disabled) {
+    background-color: #2980b9;
+    transform: translateY(-2px);
+}
+
+.preset-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+    .arm-control-container {
+        padding: 10px;
+        gap: 15px;
+    }
+
+    .controls-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .direction-row {
+        flex-wrap: wrap;
+    }
+
+    .dir-btn {
+        width: 50px;
+        height: 45px;
+        font-size: 0.75em;
+    }
+
+    .pose-values {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .control-strip {
+        flex-direction: column;
+    }
+
+    .preset-buttons {
+        flex-direction: column;
+    }
+
+    .preset-button {
+        width: 100%;
+    }
+}

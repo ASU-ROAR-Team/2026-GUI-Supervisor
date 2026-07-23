@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drilling Control Interface</title>
+</head>
+<body>
+    <div class="drilling-control-container">
+        <div class="drilling-status-bar">
+            <span class="drilling-section-header-icon">&#x1F50C;</span>
+            <div id="drillingRosStatusDot" class="drilling-status-dot"></div>
+            <div id="drillingRosStatus">Disconnected</div>
+            <div id="drillingFsmState">IDLE</div>
+        </div>
+        <div class="drilling-controls-grid">
+            <div class="drilling-control-section" id="drillingWebcamContainer">
+                <h2 class="drilling-section-header"><span class="drilling-section-header-icon">&#x1F4F7;</span> Live Camera</h2>
+                <div class="drilling-webcam-feed-wrapper">
+                    <img id="drillingWebcamImage">
+                    <div id="drillingWebcamStatusMessage" class="drilling-webcam-status-message">Loading camera feed...</div>
+                    <button id="drillingSnapshotButton" class="drilling-snapshot-button">
+                        <div class="drilling-snapshot-inner-circle"></div>
+                    </button>
+                </div>
+            </div>
+            <div class="drilling-control-section">
+                <h2 class="drilling-section-header"><span class="drilling-section-header-icon">&#x2699;</span> Manual Control</h2>
+                
+                <!-- UPDATED: Up / Stop / Down buttons with Stop in the middle -->
+                <div class="drilling-control-buttons">
+                    <button id="drillingPlatformUpButton" class="drilling-control-button">Platform Up</button>
+                    <button id="drillingPlatformStopButton" class="drilling-control-button drilling-stop-button">Stop</button>
+                    <button id="drillingPlatformDownButton" class="drilling-control-button">Platform Down</button>
+                    
+                    <!-- NEW: Auger and Gate toggles -->
+                    <div class="drilling-switch-container">
+                        <span class="drilling-switch-label">Auger</span>
+                        <label class="drilling-switch">
+                            <input type="checkbox" id="drillingAugerToggle">
+                            <span class="drilling-slider"></span>
+                        </label>
+                    </div>
+                    <div class="drilling-switch-container">
+                        <span class="drilling-switch-label">Gate</span>
+                        <label class="drilling-switch">
+                            <input type="checkbox" id="drillingGateToggle">
+                            <span class="drilling-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- NEW: Speed slider below buttons (0-20 m/s with 0.5 step) -->
+                <div class="drilling-speed-slider-container">
+                    <label for="drillingSpeedSlider" class="drilling-mission-label">Motor Speed</label>
+                    <div class="drilling-slider-wrapper">
+                        <input 
+                            type="range" 
+                            id="drillingSpeedSlider" 
+                            class="drilling-location-slider"
+                            min="0" 
+                            max="20" 
+                            step="0.5" 
+                            value="0"
+                        >
+                        <div class="drilling-slider-value-display">
+                            <span id="drillingSpeedValue">0.0</span>
+                            <span class="drilling-slider-unit">cm/s</span>
+                        </div>
+                    </div>
+                    <div class="drilling-slider-labels">
+                        <span>0</span>
+                        <span>10</span>
+                        <span>20</span>
+                    </div>
+                </div>
+
+                <p>These controls directly command the rig. They are active when the system is in "Teleoperation" mode.</p>
+            </div>
+        </div>
+
+        <!-- UPDATED: Drilling Mission Section with combined topic -->
+        <div class="drilling-control-section" id="drilling-mission-section">
+            <h2 class="drilling-section-header"><span class="drilling-section-header-icon">🎯</span> Drilling Mission</h2>
+            <p>Configure drilling mission parameters (published to /drilling/mission_cmd as Float64MultiArray).</p>
+            
+            <!-- Location Slider -->
+            <div class="drilling-mission-slider-container">
+                <label for="drillingLocationSlider" class="drilling-mission-label">Drilling Location</label>
+                <div class="drilling-slider-wrapper">
+                    <input 
+                        type="range" 
+                        id="drillingLocationSlider" 
+                        class="drilling-location-slider"
+                        min="-25" 
+                        max="35" 
+                        step="0.1" 
+                        value="0"
+                    >
+                    <div class="drilling-slider-value-display">
+                        <span id="drillingLocationValue">0.0</span>
+                        <span class="drilling-slider-unit">cm</span>
+                    </div>
+                </div>
+                <div class="drilling-slider-labels">
+                    <span>-25</span>
+                    <span>0</span>
+                    <span>+35</span>
+                </div>
+            </div>
+
+            <!-- Servo & Load Cell Toggles -->
+            <div class="drilling-mission-toggles">
+                <div class="drilling-switch-container">
+                    <span class="drilling-switch-label">Servo</span>
+                    <label class="drilling-switch">
+                        <input type="checkbox" id="drillingServoToggle">
+                        <span class="drilling-slider"></span>
+                    </label>
+                </div>
+                <div class="drilling-switch-container">
+                    <span class="drilling-switch-label">Load Cell</span>
+                    <label class="drilling-switch">
+                        <input type="checkbox" id="drillingLoadCellToggle">
+                        <span class="drilling-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="drilling-control-section" id="drilling-telemetry-section">
+            <h2 class="drilling-section-header"><span class="drilling-section-header-icon">&#x1F6A7;</span> Live Telemetry</h2>
+            <p>Monitors current depth and sample weight.</p>
+            <div class="drilling-telemetry-display">
+                <div class="drilling-telemetry-item">
+                    <h3>Platform Depth</h3>
+                    <span id="drillingPlatformDepth">0.0</span>
+                    <span>cm</span>
+                </div>
+                <div class="drilling-telemetry-item">
+                    <h3>Sample Weight</h3>
+                    <span id="drillingSampleWeight">0</span>
+                    <span>g</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

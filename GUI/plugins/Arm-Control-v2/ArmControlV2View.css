@@ -1,0 +1,25 @@
+/* Lock orientation button */
+.lock-orientation-btn {
+    background-color: #6c757d;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.lock-orientation-btn:hover {
+    background-color: #5a6268;
+    transform: translateY(-1px);
+}
+
+.lock-orientation-btn.lock-orientation-active {
+    background-color: #e74c3c;
+}
+
+.lock-orientation-btn.lock-orientation-active:hover {
+    background-color: #c0392b;
+}

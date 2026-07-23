@@ -1,0 +1,18 @@
+services:
+  multi_node_container:
+    build: .
+    network_mode: host
+    container_name: multi_node_container
+    environment:
+      - ROS_LOCALHOST_ONLY=1
+      - PYTHONUNBUFFERED=1
+    command: ros2 launch supervisor multi_launch.py
+
+  isolated_listener_container:
+    build: .
+    network_mode: host
+    container_name: isolated_listener_container
+    environment:
+      - ROS_LOCALHOST_ONLY=1
+      - PYTHONUNBUFFERED=1
+    command: ros2 run supervisor listener --ros-args --remap __node:=isolated_listener --log-level info

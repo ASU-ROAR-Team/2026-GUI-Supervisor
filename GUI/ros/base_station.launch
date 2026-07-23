@@ -1,0 +1,33 @@
+<!-- ros/enhanced_base_station.launch -->
+<launch>
+    <!-- ROSBridge for web interface -->
+    <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
+        <arg name="port" value="9090"/>
+        <arg name="address" value="0.0.0.0"/>
+    </include>
+    
+    <!-- Enhanced Web video server with multiple quality options -->
+    <node name="web_video_server" pkg="web_video_server" type="web_video_server" output="screen">
+        <param name="port" value="8081"/>
+        <param name="server_threads" value="8"/>
+        <param name="ros_threads" value="4"/>
+        <param name="default_stream_timeout" value="30"/>
+        
+        <!-- Quality presets -->
+        <rosparam param="quality_map">
+            low: 30
+            medium: 50
+            high: 80
+            max: 95
+        </rosparam>
+    </node>
+
+    <!-- Camera switching service -->
+    <node name="camera_controller" pkg="topic_tools" type="mux" 
+          args="/rover/primary_view/image_raw /rover/camera1/image_raw /rover/camera2/image_raw /rover/camera3/image_raw /rover/camera4/image_raw">
+        <remap from="mux" to="primary_camera_select"/>
+    </node>
+
+    <!-- Snapshot service node (custom) -->
+    <!-- NOTE: Not needed! Snapshots handled by web_video_server directly -->
+</launch>

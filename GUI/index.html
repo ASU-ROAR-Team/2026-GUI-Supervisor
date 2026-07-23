@@ -1,0 +1,112 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ROS Connection Test</title>
+  <script src="node_modules/openmct/dist/openmct.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/roslib@1.3.0/build/roslib.min.js"></script>
+  <script src="actions/combo-start-plugin.js"></script>
+  <script src="plugins/camera/camera_plugin.js"></script>
+  <!-- <script src="plugins/camera/WebcamPlugin.js"></script> -->
+  <script src="plugins/display/CostmapPlugin.js"></script>
+  <script src="plugins/display/ThemeTogglePlugin.js"></script> 
+  <script src="plugins/ZED/ZEDPlugin.js"></script>
+
+  <script src="plugins/mission-control/MissionControlView.js"></script>
+  <script src="plugins/mission-control/RoverStatusView.js"></script>
+  <script src="plugins/mission-control/plugin.js"></script>
+
+  <script src="plugins/Arm-Control/ArmControlView.js"></script>
+  <script src="plugins/Arm-Control/plugin.js"></script>
+  <script src="plugins/Arm-Control-v2/ArmControlV2View.js"></script>
+  <script src="plugins/Arm-Control-v2/plugin.js"></script>
+  <!-- <script src="plugins/Arm-Control-v3/ArmControlV3View.js"></script>
+  <script src="plugins/Arm-Control-v3/plugin.js"></script> -->
+  <script src="plugins/Arm-Control-FK/ArmControlFKView.js"></script>
+  <script src="plugins/Arm-Control-FK/plugin.js"></script>
+  <link rel="stylesheet" href="plugins/Arm-Control-FK/ArmControlFKView.css">
+
+  <script src="plugins/Drilling-Control/DrillingControlView.js"></script>
+  <script src="plugins/Drilling-Control/plugin.js"></script>
+
+  <script src="plugins/joystick-control/JoystickView.js"></script>
+  <script src="plugins/joystick-control/plugin.js"></script>
+  
+  <script src="plugins/Wheel-Control/WheelControlView.js"></script>
+  <script src="plugins/Wheel-Control/plugin.js"></script>
+
+  
+  <link rel="stylesheet" href="plugins/Arm-Control-v3/ArmControlV3View.css">
+  <link rel="stylesheet" href="plugins/Arm-Control/ArmControlView.css">
+  <link rel="stylesheet" href="plugins/Arm-Control-v2/ArmControlV2View.css">
+  <link rel="stylesheet" href="plugins/joystick-control/JoystickView.css">
+  <link rel="stylesheet" href="plugins/Drilling-Control/DrillingControlView.css">
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      openmct.setAssetPath('/node_modules/openmct/dist/');
+      openmct.install(openmct.plugins.LocalStorage());
+      openmct.install(openmct.plugins.MyItems());
+      openmct.install(openmct.plugins.UTCTimeSystem());
+      openmct.install(openmct.plugins.Notebook());
+      openmct.install(openmct.plugins.Timer());
+      openmct.install(openmct.plugins.LADTable());
+      openmct.install(openmct.plugins.ObjectMigration());
+      openmct.install(
+        openmct.plugins.ClearData(
+          ['table', 'telemetry.plot.overlay', 'telemetry.plot.stacked', 'example.imagery'],
+          { indicator: true }
+        )
+      );
+      openmct.install(openmct.plugins.SummaryWidget());
+      openmct.install(
+        openmct.plugins.DisplayLayout({
+          showAsView: ['summary-widget', 'example.imagery','costmap-map']
+        })
+      );
+
+      const savedTheme = localStorage.getItem('openmct.theme') || 'snow';
+      if (savedTheme === 'snow') {
+          openmct.install(openmct.plugins.Snow());
+          console.log('Open MCT started with Snow theme (light mode).');
+      } else {
+          openmct.install(openmct.plugins.Espresso());
+          console.log('Open MCT started with Espresso theme (dark mode).');
+      }
+      openmct.time.clock('local', {start: -15 * 60 * 1000, end: 0});
+      openmct.time.setMode('realtime');
+      openmct.time.timeSystem('utc');
+
+      // Install all custom plugins
+      openmct.install(window.StartComboPlugin());
+      openmct.install(window.CostmapMapPlugin({
+          defaultCostmapSourceUrl: 'http://localhost:8080/images/new_yard.png',
+          defaultPixelOffsetX: 70,
+          defaultPixelOffsetY: 246,
+          defaultPixelsPerMeter: 20,
+          checkpointsData: [[15.1159, -3.0854], [6.8073, 10.3746], [25.2349, 2.0235], [17.9612, 2.8924]],
+          landmarksData: [],
+          finalGoalData: [18.6625, 10.8159]
+      }));
+      openmct.install(window.CameraPlugin());
+      openmct.install(window.ZEDPlugin());
+      // openmct.install(window.WebcamPlugin());
+      openmct.install(window.DrillingControlPlugin());
+      openmct.install(window.JoystickPlugin());
+      openmct.install(window.MissionControlPlugin());
+      openmct.install(window.ArmControlPlugin());
+      openmct.install(window.ArmControlV2Plugin());
+      // openmct.install(window.ArmControlV3Plugin());
+      openmct.install(window.ThemeToggleObjectPlugin());
+      openmct.install(window.WheelControlPlugin());
+      openmct.install(window.ArmControlFKPlugin());
+      
+      openmct.start();
+    });
+  </script>
+  <style>
+  </style>
+</head>
+<body>
+</body>
+</html>

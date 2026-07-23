@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arm Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* General styles for the container */
+        .arm-control-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px;
+            font-family: 'Inter', sans-serif;
+            color: #333;
+            background-color: #f9fafb;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 90%;
+            margin: 20px auto;
+            position: relative;
+        }
+
+        /* Style for section headers */
+        .section-header {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #1a202c;
+        }
+
+        /* Layout for sliders and pose controls */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .joint-control, .pose-control {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Style for individual joint slider containers */
+        .joint-slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .joint-slider-container span {
+            width: 60px;
+            text-align: right;
+        }
+
+        /* Custom slider styling */
+        input[type="range"] {
+            flex-grow: 1;
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            outline: none;
+            opacity: 0.7;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+            border-radius: 4px;
+        }
+
+        input[type="range"]:hover {
+            opacity: 1;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #4a90e2;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        input[type="range"]:disabled::-webkit-slider-thumb {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        /* NEW: Style for the number input box next to sliders */
+        .joint-value-input {
+            width: 70px;
+            padding: 5px 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: 'Inter', sans-serif;
+            text-align: right;
+            -moz-appearance: textfield; /* Firefox */
+        }
+        .joint-value-input::-webkit-inner-spin-button, 
+        .joint-value-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+
+        /* Pose control styling */
+        .pose-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .pose-item strong {
+            width: 20px;
+        }
+
+        .pose-item span {
+            width: 60px;
+            text-align: right;
+            font-weight: bold;
+            color: #4a90e2;
+        }
+
+        .pose-button {
+            width: 35px;
+            height: 35px;
+            font-weight: bold;
+            background-color: #4a90e2;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background-color 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .pose-button:hover:not(:disabled) {
+            background-color: #357bd8;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .pose-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Status indicator */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+            padding: 10px 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #ccc;
+        }
+
+        .status-dot.connected {
+            background-color: #4caf50;
+        }
+
+        .status-dot.error {
+            background-color: #f44336;
+        }
+
+        /* Button for switching modes */
+        #modeSwitchButton {
+            background-color: #f39c12;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+            align-self: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        #modeSwitchButton:hover {
+            background-color: #e67e22;
+            transform: translateY(-2px);
+        }
+
+        /* Preset buttons container */
+        .preset-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .preset-button {
+            background-color: #3498db;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .preset-button:hover:not(:disabled) {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .preset-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Responsive design for mobile */
+        @media (max-width: 768px) {
+            .arm-control-container {
+                padding: 10px;
+            }
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Styles for the new camera feed section */
+        .camera-feed-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .camera-feeds {
+            display: flex;
+            justify-content: space-around;
+            gap: 10px;
+        }
+
+        .camera-feed-container {
+            flex: 1;
+            text-align: center;
+        }
+
+        .camera-feed {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .camera-label {
+            margin-top: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        /* Styles for the new storage switches section */
+        .storage-control-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .storage-switches {
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .switch-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* The switch - the box around the slider */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        /* Hide default HTML checkbox */
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        /* The slider */
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            -webkit-transition: .4s;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            -webkit-transition: .4s;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #4caf50;
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px #4caf50;
+        }
+
+        input:checked + .slider:before {
+            -webkit-transform: translateX(26px);
+            -ms-transform: translateX(26px);
+            transform: translateX(26px);
+        }
+
+        /* NEW: Styles for the keyboard shortcuts section */
+        .keyboard-shortcuts-section {
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .shortcuts-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .shortcut-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .shortcut-item:last-child {
+            border-bottom: none;
+        }
+
+        /* NEW: Styles for the joint state display blocks */
+        .joint-state-section {
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .joint-state-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        .joint-state-block {
+            padding: 10px;
+            background-color: #f1f5f9;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 500;
+            font-size: 1.1rem;
+            color: #333;
+        }
+        
+    </style>
+</head>
+
+<body>
+    <script src="https://cdn.jsdelivr.net/npm/roslib/build/roslib.min.js"></script>
+
+    <div class="arm-control-container">
+        <div class="status-bar">
+            <div id="joystickStatusDot" class="status-dot"></div>
+            <div id="joystickStatus">Disconnected</div>
+            <button id="modeSwitchButton">Switch to IK Mode</button>
+        </div>
+
+        <div class="controls-grid">
+            <div class="joint-control">
+                <h2 class="section-header">Joint Control (FK Mode)</h2>
+                <p>Use these sliders or input boxes to command each joint directly.</p>
+                <div class="joint-slider-container">
+                    <span id="joint1Vel">J1: 0.0</span>
+                    <input type="number" id="joint1Input" class="joint-value-input" min="-180" max="180" value="0">
+                    <input type="range" id="joint1Slider" min="-180" max="180" value="0">
+                </div>
+                <div class="joint-slider-container">
+                    <span id="joint2Vel">J2: 0.0</span>
+                    <input type="number" id="joint2Input" class="joint-value-input" min="0" max="270" value="0">
+                    <input type="range" id="joint2Slider" min="0" max="270" value="0">
+                </div>
+                <div class="joint-slider-container">
+                    <span id="joint3Vel">J3: 0.0</span>
+                    <input type="number" id="joint3Input" class="joint-value-input" min="-180" max="180" value="0">
+                    <input type="range" id="joint3Slider" min="-180" max="180" value="0">
+                </div>
+                <div class="joint-slider-container">
+                    <span id="joint4Vel">J4: 0.0</span>
+                    <input type="number" id="joint4Input" class="joint-value-input" min="-180" max="180" value="0">
+                    <input type="range" id="joint4Slider" min="-180" max="180" value="0">
+                </div>
+                <div class="joint-slider-container">
+                    <span id="joint5Vel">J5: 0.0</span>
+                    <input type="number" id="joint5Input" class="joint-value-input" min="-180" max="180" value="0">
+                    <input type="range" id="joint5Slider" min="-180" max="180" value="0">
+                </div>
+                <div class="joint-slider-container">
+                    <span id="joint6Vel">EE: 0.0</span>
+                    <input type="number" id="joint6Input" class="joint-value-input" min="0" max="1" value="0">
+                    <input type="range" id="joint6Slider" min="0" max="1" value="0">
+                </div>
+                <p>Or, use these presets for quick joint configurations:</p>
+                <div class="preset-buttons">
+                    <button id="presetButton1" class="preset-button">Pre-Pick</button>
+                    <button id="presetButton2" class="preset-button">Home</button>
+                    <button id="presetButton3" class="preset-button">Rock Storage</button>
+                </div>
+            </div>
+
+            <div class="pose-control">
+                <h2 class="section-header">End-Effector Pose (IK Mode)</h2>
+                <p>Use these buttons to command the end-effector position.</p>
+                <div class="pose-item">
+                    <strong>X:</strong>
+                    <button id="poseX-minus" class="pose-button">-</button>
+                    <span id="poseX">0.00</span>
+                    <button id="poseX-plus" class="pose-button">+</button>
+                </div>
+                <div class="pose-item">
+                    <strong>Y:</strong>
+                    <button id="poseY-minus" class="pose-button">-</button>
+                    <span id="poseY">0.00</span>
+                    <button id="poseY-plus" class="pose-button">+</button>
+                </div>
+                <div class="pose-item">
+                    <strong>Z:</strong>
+                    <button id="poseZ-minus" class="pose-button">-</button>
+                    <span id="poseZ">0.00</span>
+                    <button id="poseZ-plus" class="pose-button">+</button>
+                </div>
+                <div class="pose-item">
+                    <strong>Roll:</strong>
+                    <button id="poseRoll-minus" class="pose-button">-</button>
+                    <span id="poseRoll">0.00</span>
+                    <button id="poseRoll-plus" class="pose-button">+</button>
+                </div>
+                <div class="pose-item">
+                    <strong>Pitch:</strong>
+                    <button id="posePitch-minus" class="pose-button">-</button>
+                    <span id="posePitch">0.00</span>
+                    <button id="posePitch-plus" class="pose-button">+</button>
+                </div>
+                <div class="pose-item">
+                    <strong>Yaw:</strong>
+                    <button id="poseYaw-minus" class="pose-button">-</button>
+                    <span id="poseYaw">0.00</span>
+                    <button id="poseYaw-plus" class="pose-button">+</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW: Section for live joint state display -->
+        <div class="joint-state-section">
+            <h2 class="section-header">Live Joint States (Degrees)</h2>
+            <div class="joint-state-grid">
+                <div class="joint-state-block" id="joint1State">J1: --</div>
+                <div class="joint-state-block" id="joint2State">J2: --</div>
+                <div class="joint-state-block" id="joint3State">J3: --</div>
+                <div class="joint-state-block" id="joint4State">J4: --</div>
+                <div class="joint-state-block" id="joint5State">J5: --</div>
+                <div class="joint-state-block" id="joint6State">J6: --</div>
+            </div>
+        </div>
+
+        <!-- NEW: Section for keyboard shortcuts -->
+        <div class="keyboard-shortcuts-section">
+            <h2 class="section-header">Keyboard Shortcuts (FK Mode)</h2>
+            <p>Use the following keys to adjust the joint sliders:</p>
+            <div class="shortcuts-list">
+                <div class="shortcut-item">
+                    <span>Joint 1</span>
+                    <span>Q(-) / W(+)</span>
+                </div>
+                <div class="shortcut-item">
+                    <span>Joint 2</span>
+                    <span>A(-) / S(+)</span>
+                </div>
+                <div class="shortcut-item">
+                    <span>Joint 3</span>
+                    <span>Z(-) / X(+)</span>
+                </div>
+                <div class="shortcut-item">
+                    <span>Joint 4</span>
+                    <span>E(-) / R(+)</span>
+                </div>
+                <div class="shortcut-item">
+                    <span>Joint 5</span>
+                    <span>D(-) / F(+)</span>
+                </div>
+                <div class="shortcut-item">
+                    <span>Joint 6</span>
+                    <span>C(-) / V(+)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="camera-feed-section">
+            <h2 class="section-header">Live Camera Feeds</h2>
+            <div class="camera-feeds">
+                <div class="camera-feed-container">
+                    <img id="cameraFeed1" class="camera-feed" src="https://placehold.co/600x400/D3D3D3/000000?text=Camera+1+Feed" alt="Camera 1 Feed">
+                    <div class="camera-label">Robotic Arm Camera</div>
+                </div>
+                <div class="camera-feed-container">
+                    <img id="cameraFeed2" class="camera-feed" src="https://placehold.co/600x400/D3D3D3/000000?text=Camera+2+Feed" alt="Camera 2 Feed">
+                    <div class="camera-label">Rover Camera</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- NEW: Section for storage controls -->
+        <div class="storage-control-section">
+            <h2 class="section-header">Storage Controls</h2>
+            <div class="storage-switches">
+                <div class="switch-container">
+                    <label for="regolithStorageToggle" class="switch">
+                        <input type="checkbox" id="regolithStorageToggle">
+                        <span class="slider"></span>
+                    </label>
+                    <span>Regolith Storage</span>
+                </div>
+                <div class="switch-container">
+                    <label for="rockStorageToggle" class="switch">
+                        <input type="checkbox" id="rockStorageToggle">
+                        <span class="slider"></span>
+                    </label>
+                    <span>Rock Storage</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="ArmControlView.js"></script>
+    <script src="plugins/Arm-Control/plugin.js"></script>
+</body>
+</html>

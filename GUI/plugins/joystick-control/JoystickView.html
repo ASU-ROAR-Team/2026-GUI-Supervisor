@@ -1,0 +1,24 @@
+<div class="rover-joystick-container">
+    <div class="joystick-canvas-wrapper">
+        <canvas id="joystickCanvas"></canvas>
+    </div>
+    
+    <div id="joystickStatus" class="joystick-status">
+        Not Connected to ROS
+    </div>
+
+    <div class="speed-controls">
+        <div class="speed-slider-group">
+            <label for="linearSpeed">Max Linear Speed:</label>
+            <input type="range" id="linearSpeed" min="0" max="5" step="0.1" value="1.0">
+            <span id="linearSpeedValue" class="speed-value">1.0</span> m/s
+        </div>
+
+        <div class="speed-slider-group">
+            <label for="angularSpeed">Max Angular Speed:</label>
+            <input type="range" id="angularSpeed" min="0" max="5" step="0.1" value="0.5">
+            <span id="angularSpeedValue" class="speed-value">0.5</span> rad/s
+        </div>
+    </div>
+    <p id="joystickControlMessage" class="joystick-info-message"></p>
+</div>
