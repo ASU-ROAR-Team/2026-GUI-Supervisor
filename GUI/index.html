@@ -29,8 +29,14 @@
   <script src="plugins/Drilling-Control/DrillingControlView.js"></script>
   <script src="plugins/Drilling-Control/plugin.js"></script>
 
+  <script src="plugins/Drilling-26/Drilling26View.js"> </script>
+  <script src="plugins/Drilling-26/plugin.js">  </script>
+
   <script src="plugins/joystick-control/JoystickView.js"></script>
   <script src="plugins/joystick-control/plugin.js"></script>
+
+  <script src="plugins/joystick-26/Joystick26View.js"> </script>
+  <script src="plugins/joystick-26/plugin.js">  </script>
   
   <script src="plugins/Wheel-Control/WheelControlView.js"></script>
   <script src="plugins/Wheel-Control/plugin.js"></script>
@@ -93,6 +99,7 @@
       // openmct.install(window.WebcamPlugin());
       openmct.install(window.DrillingControlPlugin());
       openmct.install(window.JoystickPlugin());
+      openmct.install(window.Joystick26Plugin());
       openmct.install(window.MissionControlPlugin());
       openmct.install(window.ArmControlPlugin());
       openmct.install(window.ArmControlV2Plugin());
@@ -100,7 +107,7 @@
       openmct.install(window.ThemeToggleObjectPlugin());
       openmct.install(window.WheelControlPlugin());
       openmct.install(window.ArmControlFKPlugin());
-      
+      openmct.install(window.Drilling26Plugin());
       openmct.start();
     });
   </script>

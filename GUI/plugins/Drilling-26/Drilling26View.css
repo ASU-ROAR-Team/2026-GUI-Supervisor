@@ -1,0 +1,26 @@
+/* ─── NEW: Dual Motor Control Styles ─── */
+.drilling-motor-group {
+    background-color: #f9fafb;
+    padding: 10px;
+    border-radius: 8px;
+    border-left: 4px solid #f39c12;
+}
+
+.drilling-motor-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 5px;
+}
+
+/* Ensure the CCW/CW buttons get distinct active states if needed */
+.drilling-motor-buttons .drilling-control-button.active {
+    background-color: #27ae60;
+    box-shadow: 0 0 12px rgba(39, 174, 96, 0.6) inset;
+    border: 2px solid #fff;
+}
+
+.drilling-motor-buttons .drilling-stop-button.active {
+    background-color: #a93226;
+    box-shadow: 0 0 12px rgba(231, 76, 60, 0.6) inset;
+}

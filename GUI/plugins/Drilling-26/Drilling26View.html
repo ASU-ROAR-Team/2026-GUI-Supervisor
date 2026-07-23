@@ -1,4 +1,3 @@
-<!--plugins/Drilling-Control/DrillingControlView.html-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,6 +13,7 @@
             <div id="drillingRosStatus">Disconnected</div>
             <div id="drillingFsmState">IDLE</div>
         </div>
+        
         <div class="drilling-controls-grid">
             <div class="drilling-control-section" id="drillingWebcamContainer">
                 <h2 class="drilling-section-header"><span class="drilling-section-header-icon">&#x1F4F7;</span> Live Camera</h2>
@@ -25,16 +25,15 @@
                     </button>
                 </div>
             </div>
+            
             <div class="drilling-control-section">
                 <h2 class="drilling-section-header"><span class="drilling-section-header-icon">&#x2699;</span> Manual Control</h2>
                 
-                <!-- UPDATED: Up / Stop / Down buttons with Stop in the middle -->
                 <div class="drilling-control-buttons">
                     <button id="drillingPlatformUpButton" class="drilling-control-button">Platform Up</button>
                     <button id="drillingPlatformStopButton" class="drilling-control-button drilling-stop-button">Stop</button>
                     <button id="drillingPlatformDownButton" class="drilling-control-button">Platform Down</button>
                     
-                    <!-- NEW: Auger and Gate toggles -->
                     <div class="drilling-switch-container">
                         <span class="drilling-switch-label">Auger</span>
                         <label class="drilling-switch">
@@ -51,19 +50,10 @@
                     </div>
                 </div>
 
-                <!-- NEW: Speed slider below buttons (0-20 m/s with 0.5 step) -->
                 <div class="drilling-speed-slider-container">
                     <label for="drillingSpeedSlider" class="drilling-mission-label">Motor Speed</label>
                     <div class="drilling-slider-wrapper">
-                        <input 
-                            type="range" 
-                            id="drillingSpeedSlider" 
-                            class="drilling-location-slider"
-                            min="0" 
-                            max="20" 
-                            step="0.5" 
-                            value="0"
-                        >
+                        <input type="range" id="drillingSpeedSlider" class="drilling-location-slider" min="0" max="20" step="0.5" value="0">
                         <div class="drilling-slider-value-display">
                             <span id="drillingSpeedValue">0.0</span>
                             <span class="drilling-slider-unit">cm/s</span>
@@ -75,29 +65,41 @@
                         <span>20</span>
                     </div>
                 </div>
-
-                <p>These controls directly command the rig. They are active when the system is in "Teleoperation" mode.</p>
+            </div>
+            
+            <!-- NEW: Dual Motor Control Section -->
+            <div class="drilling-control-section">
+                <h2 class="drilling-section-header"><span class="drilling-section-header-icon">⚙️</span> Dual Motor Control</h2>
+                <p>Independent 3-state control for two drilling motors.</p>
+                
+                <div class="drilling-motor-group">
+                    <label class="drilling-mission-label">Motor 1</label>
+                    <div class="drilling-motor-buttons">
+                        <button id="motor1CW" class="drilling-control-button">CW</button>
+                        <button id="motor1OFF" class="drilling-control-button drilling-stop-button active">OFF</button>
+                        <button id="motor1CCW" class="drilling-control-button">CCW</button>
+                    </div>
+                </div>
+                
+                <div class="drilling-motor-group" style="margin-top: 10px;">
+                    <label class="drilling-mission-label">Motor 2</label>
+                    <div class="drilling-motor-buttons">
+                        <button id="motor2CW" class="drilling-control-button">CW</button>
+                        <button id="motor2OFF" class="drilling-control-button drilling-stop-button active">OFF</button>
+                        <button id="motor2CCW" class="drilling-control-button">CCW</button>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- UPDATED: Drilling Mission Section with combined topic -->
         <div class="drilling-control-section" id="drilling-mission-section">
             <h2 class="drilling-section-header"><span class="drilling-section-header-icon">🎯</span> Drilling Mission</h2>
-            <p>Configure drilling mission parameters (published to /drilling/mission_cmd as Float64MultiArray).</p>
+            <p>Configure drilling mission parameters.</p>
             
-            <!-- Location Slider -->
             <div class="drilling-mission-slider-container">
                 <label for="drillingLocationSlider" class="drilling-mission-label">Drilling Location</label>
                 <div class="drilling-slider-wrapper">
-                    <input 
-                        type="range" 
-                        id="drillingLocationSlider" 
-                        class="drilling-location-slider"
-                        min="-25" 
-                        max="35" 
-                        step="0.1" 
-                        value="0"
-                    >
+                    <input type="range" id="drillingLocationSlider" class="drilling-location-slider" min="-25" max="35" step="0.1" value="0">
                     <div class="drilling-slider-value-display">
                         <span id="drillingLocationValue">0.0</span>
                         <span class="drilling-slider-unit">cm</span>
@@ -110,7 +112,6 @@
                 </div>
             </div>
 
-            <!-- Servo & Load Cell Toggles -->
             <div class="drilling-mission-toggles">
                 <div class="drilling-switch-container">
                     <span class="drilling-switch-label">Servo</span>
@@ -131,17 +132,30 @@
 
         <div class="drilling-control-section" id="drilling-telemetry-section">
             <h2 class="drilling-section-header"><span class="drilling-section-header-icon">&#x1F6A7;</span> Live Telemetry</h2>
-            <p>Monitors current depth and sample weight.</p>
             <div class="drilling-telemetry-display">
                 <div class="drilling-telemetry-item">
                     <h3>Platform Depth</h3>
                     <span id="drillingPlatformDepth">0.0</span>
                     <span>cm</span>
                 </div>
+                <!-- Load Cell -->
                 <div class="drilling-telemetry-item">
-                    <h3>Sample Weight</h3>
+                    <h3>Regolith Mass</h3>
                     <span id="drillingSampleWeight">0</span>
-                    <span>g</span>
+                    <span>gm</span>
+                </div>
+                <!-- Current Sensor -->
+                <div class="drilling-telemetry-item">
+                    <h3>Motor Current</h3>
+                    <span id="drillingCurrent">0.00</span>
+                    <span>mA</span>
+                </div>
+                <!-- Encoder -->
+                <div class="drilling-telemetry-item">
+                    <h3>Auger Distance</h3>
+                    <span id="drillingEncoder">0</span>
+                    <!-- You can change 'cm' to 'mm' or 'ticks' depending on your raw data -->
+                    <span>cm</span> 
                 </div>
             </div>
         </div>
