@@ -3,13 +3,14 @@ services:
     build:
       context: ./GUI
     network_mode: host
+    privileged: true
     container_name: gui_container
     environment:
       - ROS_LOCALHOST_ONLY=${ROS_LOCALHOST_ONLY:-1}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
       - PYTHONUNBUFFERED=1
-    command: tail -f /dev/null
+    command: /bin/bash -c "source /opt/ros/humble/setup.bash && python3 ws_ros2_bridge.py & python3 web_camera_server.py & node server.js"
 
   supervisor_container:
     build:

@@ -3,7 +3,7 @@
     'use strict';
 
     class ArmControlView {
-        constructor(container, openmct, wsUrl = "ws://localhost:8080") {
+        constructor(container, openmct, wsUrl = `ws://${window.location.hostname || 'localhost'}:9090`) {
             this.container = container;
             this.openmct   = openmct;
             this.wsUrl     = wsUrl;

@@ -144,7 +144,8 @@
         initWS() {
             if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
 
-            this.ws = new WebSocket('ws://localhost:8080');
+            const wsHost = window.location.hostname || 'localhost';
+            this.ws = new WebSocket(`ws://${wsHost}:9090`);
 
             this.ws.onopen = () => {
                 console.log('[CostmapPlugin] Connected to WS bridge');
