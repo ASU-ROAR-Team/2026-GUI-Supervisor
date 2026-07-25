@@ -30,10 +30,10 @@ run_with_privilege() {
 # Make this script try to locate the GUI folder in the working directory in /roar_ws/GUI.
 # If not found then clone the repo from https://github.com/ASU-ROAR-Team/2026-GUI-Supervisor.git and go to branch called gui_updated.
 GUI_DIR=""
-if [ -d "/roar_ws/supervisor_gui/GUI" ]; then
-    echo "Found GUI folder at /roar_ws/supervisor_gui/GUI"
-    GUI_DIR="/roar_ws/supervisor_gui/GUI"
-elif [ -d "supervisor_gui/GUI" ]; then
+if [ -d "$(pwd)/roar_ws/supervisor_gui/GUI" ]; then
+    echo "Found GUI folder at $(pwd)/roar_ws/supervisor_gui/GUI"
+    GUI_DIR="$(pwd)/roar_ws/supervisor_gui/GUI"
+elif [ -d "$(pwd)/supervisor_gui/GUI" ]; then
     echo "Found GUI folder in working directory at $(pwd)/supervisor_gui/GUI"
     GUI_DIR="$(pwd)/supervisor_gui/GUI"
 elif [ -d "GUI" ]; then
@@ -49,16 +49,16 @@ else
     fi
 
     # Try to use /roar_ws if possible
-    if [ ! -d "/roar_ws" ]; then
-        if run_with_privilege mkdir -p /roar_ws 2>/dev/null; then
-            run_with_privilege chown "$(id -u):$(id -g)" /roar_ws 2>/dev/null || true
+    if [ ! -d "$(pwd)/roar_ws" ]; then
+        if run_with_privilege mkdir -p "$(pwd)/roar_ws" 2>/dev/null; then
+            run_with_privilege chown "$(id -u):$(id -g)" "$(pwd)/roar_ws" 2>/dev/null || true
         fi
     fi
 
-    if [ -d "/roar_ws" ] && [ -w "/roar_ws" ] && [ -z "$(ls -A /roar_ws 2>/dev/null)" ]; then
-        echo "Cloning repository to /roar_ws..."
-        git clone -b gui_updated https://github.com/ASU-ROAR-Team/2026-GUI-Supervisor.git /roar_ws/supervisor_gui
-        GUI_DIR="/roar_ws/supervisor_gui/GUI"
+    if [ -d "$(pwd)/roar_ws" ] && [ -w "$(pwd)/roar_ws" ] && [ -z "$(ls -A "$(pwd)/roar_ws" 2>/dev/null)" ]; then
+        echo "Cloning repository to $(pwd)/roar_ws..."
+        git clone -b gui_updated https://github.com/ASU-ROAR-Team/2026-GUI-Supervisor.git "$(pwd)/roar_ws/supervisor_gui"
+        GUI_DIR="$(pwd)/roar_ws/supervisor_gui/GUI"
     else
         echo "Cloning repository locally to supervisor_gui..."
         git clone -b gui_updated https://github.com/ASU-ROAR-Team/2026-GUI-Supervisor.git supervisor_gui
@@ -134,9 +134,15 @@ if ! has_command pip3; then
 fi
 
 if [ "$need_node_install" = true ]; then
+    echo "Removing conflicting legacy Node.js packages..."
+    # Purge base nodejs along with libnode72
+    run_with_privilege apt-get remove --purge -y nodejs libnode72 libnode-dev nodejs-doc 2>/dev/null || true
+    run_with_privilege apt-get autoremove -y 2>/dev/null || true
+
     echo "Installing Node.js 18..."
     curl -fsSL https://deb.nodesource.com/setup_18.x | run_with_privilege bash -
-    run_with_privilege apt-get install -y nodejs
+    # Pass force-overwrite flag to dpkg to bypass file collisions safely
+    run_with_privilege apt-get install -y -o Dpkg::Options::="--force-overwrite" nodejs
 fi
 
 if [ ! -d "/opt/ros/humble/share/rmw_cyclonedds_cpp" ]; then
@@ -182,15 +188,15 @@ echo "Launching GUI and Bridge..."
 echo "==========================================="
 
 # Setup environment variables matching the docker-compose config
-export ROS_LOCALHOST_ONLY=1
-export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-export PYTHONUNBUFFERED=1
+# export ROS_LOCALHOST_ONLY=1
+# export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+# export PYTHONUNBUFFERED=1
 
-if [ -f "$GUI_DIR/../cyclonedds.xml" ]; then
-    export CYCLONEDDS_URI="file://$GUI_DIR/../cyclonedds.xml"
-elif [ -f "$GUI_DIR/cyclonedds.xml" ]; then
-    export CYCLONEDDS_URI="file://$GUI_DIR/cyclonedds.xml"
-fi
+# if [ -f "$GUI_DIR/../cyclonedds.xml" ]; then
+#     export CYCLONEDDS_URI="file://$GUI_DIR/../cyclonedds.xml"
+# elif [ -f "$GUI_DIR/cyclonedds.xml" ]; then
+#     export CYCLONEDDS_URI="file://$GUI_DIR/cyclonedds.xml"
+# fi
 
 cleanup() {
     echo "Stopping processes..."
