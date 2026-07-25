@@ -26,6 +26,52 @@ run_with_privilege() {
     fi
 }
 
+# --- Locate or Clone GUI Folder ---
+# Make this script try to locate the GUI folder in the working directory in /roar_ws/GUI.
+# If not found then clone the repo from https://github.com/ASU-ROAR-Team/2026-GUI-Supervisor.git and go to branch called gui_updated.
+GUI_DIR=""
+if [ -d "/roar_ws/supervisor_gui/GUI" ]; then
+    echo "Found GUI folder at /roar_ws/supervisor_gui/GUI"
+    GUI_DIR="/roar_ws/supervisor_gui/GUI"
+elif [ -d "supervisor_gui/GUI" ]; then
+    echo "Found GUI folder in working directory at $(pwd)/supervisor_gui/GUI"
+    GUI_DIR="$(pwd)/supervisor_gui/GUI"
+elif [ -d "GUI" ]; then
+    echo "Found GUI folder in working directory at $(pwd)/GUI"
+    GUI_DIR="$(pwd)/GUI"
+else
+    echo "GUI folder not found. Cloning repository..."
+    # Ensure git is installed before cloning
+    if ! has_command git; then
+        echo "git is missing. Installing git..."
+        run_with_privilege apt-get update
+        run_with_privilege apt-get install -y git
+    fi
+
+    # Try to use /roar_ws if possible
+    if [ ! -d "/roar_ws" ]; then
+        if run_with_privilege mkdir -p /roar_ws 2>/dev/null; then
+            run_with_privilege chown "$(id -u):$(id -g)" /roar_ws 2>/dev/null || true
+        fi
+    fi
+
+    if [ -d "/roar_ws" ] && [ -w "/roar_ws" ] && [ -z "$(ls -A /roar_ws 2>/dev/null)" ]; then
+        echo "Cloning repository to /roar_ws..."
+        git clone -b gui_updated https://github.com/ASU-ROAR-Team/2026-GUI-Supervisor.git /roar_ws/supervisor_gui
+        GUI_DIR="/roar_ws/supervisor_gui/GUI"
+    else
+        echo "Cloning repository locally to supervisor_gui..."
+        git clone -b gui_updated https://github.com/ASU-ROAR-Team/2026-GUI-Supervisor.git supervisor_gui
+        GUI_DIR="$(pwd)/supervisor_gui/GUI"
+    fi
+
+    # Explicitly checkout gui_updated branch in the cloned repo
+    echo "Ensuring gui_updated branch is active..."
+    cd "$GUI_DIR/.."
+    git checkout gui_updated
+    cd - > /dev/null
+fi
+
 # 1. Update package list if we need to install anything
 need_apt_update=false
 
@@ -118,8 +164,7 @@ fi
 
 # 4. Check and install Node.js dependencies
 echo "Checking Node.js dependencies..."
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-cd "$DIR"
+cd "$GUI_DIR"
 
 if [ ! -d "node_modules" ]; then
     echo "node_modules not found. Running npm install..."
@@ -141,10 +186,10 @@ export ROS_LOCALHOST_ONLY=1
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export PYTHONUNBUFFERED=1
 
-if [ -f "$DIR/../cyclonedds.xml" ]; then
-    export CYCLONEDDS_URI="file://$DIR/../cyclonedds.xml"
-elif [ -f "$DIR/cyclonedds.xml" ]; then
-    export CYCLONEDDS_URI="file://$DIR/cyclonedds.xml"
+if [ -f "$GUI_DIR/../cyclonedds.xml" ]; then
+    export CYCLONEDDS_URI="file://$GUI_DIR/../cyclonedds.xml"
+elif [ -f "$GUI_DIR/cyclonedds.xml" ]; then
+    export CYCLONEDDS_URI="file://$GUI_DIR/cyclonedds.xml"
 fi
 
 cleanup() {
