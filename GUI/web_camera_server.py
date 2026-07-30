@@ -405,7 +405,7 @@ class CameraHandler(BaseHTTPRequestHandler):
         self.send_error(404)
 
 def main():
-    port = 8080
+    port = 9090
     free_video_devices()
 
     # Start capture threads for each camera
