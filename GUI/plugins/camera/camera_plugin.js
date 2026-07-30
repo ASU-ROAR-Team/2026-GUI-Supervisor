@@ -4,6 +4,33 @@
     const CAMERA_KEY = 'camera';
     const MULTI_CAMERA_KEY = 'multi-camera';
 
+    function startLowLatencyStream(imgEl, frameUrl) {
+        let active = true;
+        async function loop() {
+            while (active && document.body.contains(imgEl)) {
+                const t0 = performance.now();
+                try {
+                    const response = await fetch(frameUrl + (frameUrl.includes('?') ? '&' : '?') + 't=' + Date.now());
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const newUrl = URL.createObjectURL(blob);
+                        const oldUrl = imgEl.src;
+                        imgEl.src = newUrl;
+                        if (oldUrl && oldUrl.startsWith('blob:')) {
+                            URL.revokeObjectURL(oldUrl);
+                        }
+                    }
+                } catch (e) {}
+
+                const elapsed = performance.now() - t0;
+                const delay = Math.max(5, 33 - elapsed);
+                await new Promise(r => setTimeout(r, delay));
+            }
+        }
+        loop();
+        return () => { active = false; };
+    }
+
     window.CameraPlugin = function CameraPlugin() {
         return function install(openmct) {
             // --- 1. Define single Camera object type ---
@@ -26,14 +53,14 @@
                 ]
             });
 
-            // --- 2. Define 5-Camera Grid object type ---
+            // --- 2. Define Multi-Camera Grid object type ---
             openmct.types.addType(MULTI_CAMERA_KEY, {
-                name: '5-Camera Grid Dashboard',
-                description: 'Displays live streams for all 5 USB cameras simultaneously.',
+                name: 'Multi-Camera Grid Dashboard',
+                description: 'Displays live streams for all USB cameras simultaneously.',
                 creatable: true,
                 cssClass: 'icon-camera',
                 initialize(domainObject) {
-                    domainObject.name = domainObject.name || '5-Camera Grid Dashboard';
+                    domainObject.name = domainObject.name || 'Multi-Camera Grid Dashboard';
                 },
                 form: []
             });
@@ -45,6 +72,7 @@
                 canView: (domainObject) => domainObject.type === CAMERA_KEY,
                 view: (domainObject) => {
                     let cameraElement = null;
+                    let stopStream = null;
 
                     return {
                         show(element) {
@@ -68,15 +96,19 @@
                             cameraElement.style.width = '100%';
                             cameraElement.style.height = '100%';
                             cameraElement.style.objectFit = 'contain';
-                            cameraElement.src = url;
-
-                            cameraElement.onerror = () => {
-                                element.innerHTML = `<div style="color: #f87171; text-align: center; padding-top: 20px;">Unable to load camera stream from ${url}</div>`;
-                            };
 
                             element.appendChild(cameraElement);
+
+                            if (url.includes('/api/stream/')) {
+                                const camNum = url.split('/').pop();
+                                const frameUrl = `http://${host}:9090/api/frame/${camNum}`;
+                                stopStream = startLowLatencyStream(cameraElement, frameUrl);
+                            } else {
+                                cameraElement.src = url;
+                            }
                         },
                         destroy() {
+                            if (stopStream) stopStream();
                             cameraElement = null;
                         }
                     };
@@ -89,6 +121,8 @@
                 name: 'Multi-Camera Grid View',
                 canView: (domainObject) => domainObject.type === MULTI_CAMERA_KEY,
                 view: (domainObject) => {
+                    let cancelTokens = [];
+
                     return {
                         show(element) {
                             const host = window.location.hostname || 'localhost';
@@ -113,13 +147,12 @@
                                             <div class="cam-card">
                                                 <div class="cam-card-title">${camLabels[i]}</div>
                                                 <div class="cam-frame">
-                                                    <img src="http://${host}:9090/api/stream/${num}" alt="${camLabels[i]}" 
-                                                         onerror="this.onerror=null; this.src='http://${host}:9090/api/frame/${num}';">
+                                                    <img id="openmct-cam-${num}" alt="${camLabels[i]}">
                                                 </div>
                                             </div>
                                         `).join('')}
                                     </div>
-                                </div>`
+                                </div>
                                 <style>
                                     .multi-cam-container {
                                         padding: 15px;
@@ -173,9 +206,20 @@
                                     }
                                 </style>
                             `;
+
+                            // Start low-latency async fetch loops for all cameras
+                            camNums.forEach(num => {
+                                const imgEl = element.querySelector(`#openmct-cam-${num}`);
+                                if (imgEl) {
+                                    const frameUrl = `http://${host}:9090/api/frame/${num}`;
+                                    const cancel = startLowLatencyStream(imgEl, frameUrl);
+                                    cancelTokens.push(cancel);
+                                }
+                            });
                         },
                         destroy() {
-                            element.innerHTML = '';
+                            cancelTokens.forEach(cancel => cancel());
+                            cancelTokens = [];
                         }
                     };
                 }
