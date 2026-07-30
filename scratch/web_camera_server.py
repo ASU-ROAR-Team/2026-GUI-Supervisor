@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-High-Performance Multi-Camera Web Server (Version 2)
+High-Performance Multi-Camera Web Server
 Features:
 - Individual Camera ON/OFF toggles
 - Per-Camera & Global Grayscale / RGB color toggles
 - Dynamic Resolution & Compression Quality controls
 - Real-time FPS & Latency stats
+- Single JPEG frame endpoint (/api/frame/<cam>) & MJPEG stream endpoint (/api/stream/<cam>)
 """
 
 import cv2
@@ -15,7 +16,7 @@ import subprocess
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 
-DEV_NODES = ["/dev/video2", "/dev/video4", "/dev/video6", "/dev/video8", "/dev/video10"]
+DEV_NODES = ["/dev/video0", "/dev/video2", "/dev/video4", "/dev/video6", "/dev/video8", "/dev/video10"]
 
 # Shared thread-safe frame buffer
 latest_jpeg = {dev: None for dev in DEV_NODES}
@@ -25,7 +26,7 @@ frame_locks = {dev: threading.Lock() for dev in DEV_NODES}
 stream_config = {
     "width": 640,
     "height": 480,
-    "quality": 60,
+    "quality": 50,
     "fps_cap": 30,
     "global_color": "rgb"  # "rgb" or "gray"
 }
@@ -46,8 +47,7 @@ def free_video_devices():
         pass
 
 def capture_worker(dev_path):
-    """Continuously captures frames from a camera device."""
-    cam_id = dev_path.replace("/dev/video", "")
+    """Continuously captures frames from a camera device with zero latency buffer draining."""
     print(f"Initializing Camera {dev_path}...")
     
     cap = cv2.VideoCapture(dev_path, cv2.CAP_V4L2)
@@ -61,41 +61,41 @@ def capture_worker(dev_path):
         return
 
     print(f"✅ Camera {dev_path} active!")
-    last_time = time.time()
+    last_encode_time = 0.0
     
     while True:
-        target_delay = 1.0 / stream_config["fps_cap"]
-        
-        # Check if camera stream is active/enabled
+        ret, frame = cap.read()
+        if not ret:
+            time.sleep(0.005)
+            continue
+
         if not cam_states[dev_path]["enabled"]:
             time.sleep(0.1)
             continue
 
-        ret, frame = cap.read()
-        if ret:
-            # 1. Resize if required
-            h, w = frame.shape[:2]
-            if w != stream_config["width"] or h != stream_config["height"]:
-                frame = cv2.resize(frame, (stream_config["width"], stream_config["height"]))
+        now = time.time()
+        target_delay = 1.0 / stream_config["fps_cap"]
+        if now - last_encode_time < target_delay:
+            continue
 
-            # 2. Apply Grayscale if requested globally or per-camera
-            cam_color = cam_states[dev_path]["color"]
-            if stream_config["global_color"] == "gray" or cam_color == "gray":
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        last_encode_time = now
 
-            # 3. JPEG Compression
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), stream_config["quality"]]
-            _, jpeg_buffer = cv2.imencode('.jpg', frame, encode_param)
-            
-            with frame_locks[dev_path]:
-                latest_jpeg[dev_path] = jpeg_buffer.tobytes()
-        else:
-            time.sleep(0.01)
+        # 1. Resize if required
+        h, w = frame.shape[:2]
+        if w != stream_config["width"] or h != stream_config["height"]:
+            frame = cv2.resize(frame, (stream_config["width"], stream_config["height"]))
 
-        elapsed = time.time() - last_time
-        if elapsed < target_delay:
-            time.sleep(target_delay - elapsed)
-        last_time = time.time()
+        # 2. Apply Grayscale if requested globally or per-camera
+        cam_color = cam_states[dev_path]["color"]
+        if stream_config["global_color"] == "gray" or cam_color == "gray":
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # 3. JPEG Compression
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), stream_config["quality"]]
+        _, jpeg_buffer = cv2.imencode('.jpg', frame, encode_param)
+        
+        with frame_locks[dev_path]:
+            latest_jpeg[dev_path] = jpeg_buffer.tobytes()
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
@@ -134,7 +134,44 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.wfile.write(data)
             return
 
-        # 2. API: Dynamic Settings Control Endpoint
+        # 2. API: Continuous MJPEG Stream for standard HTML <img> elements
+        if self.path.startswith('/api/stream/'):
+            cam_num = self.path.split('?')[0].split('/')[-1]
+            dev_path = f"/dev/video{cam_num}"
+
+            if dev_path not in latest_jpeg:
+                self.send_error(404, "Camera not found")
+                return
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=frame')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.send_header('Pragma', 'no-cache')
+            self.end_headers()
+
+            try:
+                while True:
+                    if not cam_states[dev_path]["enabled"]:
+                        time.sleep(0.1)
+                        continue
+
+                    with frame_locks[dev_path]:
+                        data = latest_jpeg[dev_path]
+
+                    if data is not None:
+                        self.wfile.write(b'--frame\r\n')
+                        self.wfile.write(b'Content-Type: image/jpeg\r\n')
+                        self.wfile.write(f'Content-Length: {len(data)}\r\n\r\n'.encode())
+                        self.wfile.write(data)
+                        self.wfile.write(b'\r\n')
+                        self.wfile.flush()
+
+                    time.sleep(1.0 / stream_config["fps_cap"])
+            except Exception:
+                pass
+            return
+
+        # 3. API: Dynamic Settings Control Endpoint
         if self.path.startswith('/api/control'):
             from urllib.parse import parse_qs, urlparse
             query = parse_qs(urlparse(self.path).query)
@@ -169,7 +206,7 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.wfile.write(b'{"status":"ok"}')
             return
 
-        # 3. HTML5 Dashboard with Per-Camera Toggles
+        # 4. HTML5 Dashboard with Per-Camera Toggles
         if self.path == '/' or self.path.startswith('/?'):
             self.send_response(200)
             self.send_header('Content-Type', 'text/html')
@@ -220,7 +257,7 @@ class CameraHandler(BaseHTTPRequestHandler):
     <header>
         <div class="header-top">
             <h1>🎥 5 Camera Control Dashboard</h1>
-            <span class="badge">JPEG Compressed</span>
+            <span class="badge">JPEG / MJPEG Stream</span>
         </div>
         <div class="controls">
             <div class="control-group">
@@ -272,8 +309,9 @@ class CameraHandler(BaseHTTPRequestHandler):
     </div>
 
     <script>
-        const camNums = ["2", "4", "6", "8", "10"];
+        const camNums = ["0", "2", "4", "6", "8", "10"];
         const camState = {
+            "0": { enabled: true, color: "rgb" },
             "2": { enabled: true, color: "rgb" },
             "4": { enabled: true, color: "rgb" },
             "6": { enabled: true, color: "rgb" },
@@ -378,8 +416,7 @@ def main():
 
     server = ThreadedHTTPServer(('0.0.0.0', port), CameraHandler)
     print(f"\n==================================================================")
-    print(f"🚀 Multi-Camera Web Server Restored (Version 2) Active on Port {port}")
-    print(f"👉 Open on Receiver Laptop Web Browser: http://192.168.150.237:{port}")
+    print(f"🚀 Multi-Camera Web Server Active on Port {port}")
     print(f"==================================================================\n")
 
     try:

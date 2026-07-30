@@ -7,6 +7,7 @@
     const MISSION_PANEL_KEY = 'mission-panel';
     const STATUS_DISPLAY_KEY = 'status-display';
     const MULTI_CAM_KEY = 'multi-camera-dashboard';
+    const CAM_0_KEY = 'cam-0-main';
     const CAM_1_KEY = 'cam-1-front';
     const CAM_2_KEY = 'cam-2-left';
     const CAM_3_KEY = 'cam-3-right';
@@ -78,8 +79,16 @@
                     } else if (identifier.key === MULTI_CAM_KEY) {
                         return Promise.resolve({
                             identifier: identifier,
-                            name: '📹 5-Camera Grid Dashboard',
+                            name: '📹 Multi-Camera Grid Dashboard',
                             type: 'multi-camera',
+                            location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
+                        });
+                    } else if (identifier.key === CAM_0_KEY) {
+                        return Promise.resolve({
+                            identifier: identifier,
+                            name: 'Camera 0 (Main - /dev/video0)',
+                            type: 'camera',
+                            cameraFeedUrl: `http://${host}:9090/api/stream/0`,
                             location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
                         });
                     } else if (identifier.key === CAM_1_KEY) {
@@ -139,6 +148,7 @@
                         { namespace: MISSION_CONTROL_KEY, key: STATUS_DISPLAY_KEY },
                         { namespace: MISSION_CONTROL_KEY, key: MISSION_PANEL_KEY },
                         { namespace: MISSION_CONTROL_KEY, key: MULTI_CAM_KEY },
+                        { namespace: MISSION_CONTROL_KEY, key: CAM_0_KEY },
                         { namespace: MISSION_CONTROL_KEY, key: CAM_1_KEY },
                         { namespace: MISSION_CONTROL_KEY, key: CAM_2_KEY },
                         { namespace: MISSION_CONTROL_KEY, key: CAM_3_KEY },

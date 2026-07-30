@@ -83,17 +83,18 @@
                 }
             });
 
-            // --- 4. Multi-Camera 5-Grid View Provider ---
+            // --- 4. Multi-Camera Grid View Provider ---
             openmct.objectViews.addProvider({
                 key: 'multi-camera-view',
-                name: '5-Camera Grid View',
+                name: 'Multi-Camera Grid View',
                 canView: (domainObject) => domainObject.type === MULTI_CAMERA_KEY,
                 view: (domainObject) => {
                     return {
                         show(element) {
                             const host = window.location.hostname || 'localhost';
-                            const camNums = [2, 4, 6, 8, 10];
+                            const camNums = [0, 2, 4, 6, 8, 10];
                             const camLabels = [
+                                "Cam 0 (Main - /dev/video0)",
                                 "Cam 1 (Front - /dev/video2)",
                                 "Cam 2 (Left - /dev/video4)",
                                 "Cam 3 (Right - /dev/video6)",
@@ -105,7 +106,7 @@
                                 <div class="multi-cam-container">
                                     <div class="multi-cam-header">
                                         <h3>📹 Multi-Camera Real-Time Monitor</h3>
-                                        <span class="multi-cam-badge">5 Feeds Active</span>
+                                        <span class="multi-cam-badge">${camNums.length} Feeds Active</span>
                                     </div>
                                     <div class="multi-cam-grid">
                                         ${camNums.map((num, i) => `
@@ -118,7 +119,7 @@
                                             </div>
                                         `).join('')}
                                     </div>
-                                </div>
+                                </div>`
                                 <style>
                                     .multi-cam-container {
                                         padding: 15px;

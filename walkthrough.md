@@ -1,6 +1,6 @@
-# Walkthrough - Network Port Standardization & OpenMCT Integration
+# Walkthrough - Network Port Standardization, Camera 0 Addition & FK Arm Control Enhancements
 
-Standardized network ports across the entire ROAR-Supervisor project, eliminating port conflicts and enabling dynamic network host resolution for remote laptop and multi-container access.
+Standardized network ports across the entire ROAR-Supervisor project, added `/dev/video0` camera feed, optimized camera capture latency, and added float64 multipliers and dynamic bounds controls to the Robotic Arm Control FK plugin.
 
 ---
 
@@ -16,47 +16,22 @@ Standardized network ports across the entire ROAR-Supervisor project, eliminatin
 
 ## Key Changes Made
 
-### 1. Backend ROS2 WebSocket Bridge (`GUI/ws_ros2_bridge.py` & `GUI/ros/base_station.launch`)
-- Configured ROS2 WebSocket bridge to run on port **8080**.
-- Updated `base_station.launch` rosbridge websocket port argument to **8080**.
+### 1. Camera Server & Latency Optimization (`GUI/web_camera_server.py`)
+- **Added `/dev/video0`**: Expanded camera device list to include `/dev/video0` alongside existing `/dev/video2`, `/dev/video4`, `/dev/video6`, `/dev/video8`, `/dev/video10`.
+- **Zero-Latency V4L2 Buffer Draining**: Refactored `capture_worker()` to continuously poll `cap.read()` without thread sleeping inside the capture loop. This prevents V4L2 kernel driver queue buildup and eliminates video stream lag.
+- **HTML Dashboard Update**: Included Camera 0 in `camNums` array and UI grid cards.
 
-### 2. Camera MJPEG Stream Server (`GUI/web_camera_server.py`)
-- Standardized camera HTTP MJPEG streaming server on port **9090**.
-- Supports 5 video feeds (`/dev/video2`, `/dev/video4`, `/dev/video6`, `/dev/video8`, `/dev/video10`) at `/api/stream/<num>` and `/api/frame/<num>`.
-- Updated `free_video_devices()` and `cleanup.sh` to clear port `9090/tcp`.
+### 2. Robotic Arm Control FK Plugin (`GUI/plugins/Arm-Control-FK/ArmControlFKView.js`)
+- **Float64 Multipliers / Factors**: Added per-joint factor inputs (`j0`, `j1`, `j2`, `j3`, `diff_m1`, `diff_m2`, `gripper_servo`). Values sent via WebSocket (`type: 'joint_cmd_fk_custom'`) and published to `/fk_joint_states` now compute `jointValue * factor`.
+- **Dynamic Bounds (Min / Max Inputs)**: Added `Min` and `Max` number input fields for each joint control card. Modifying these bounds updates slider limits dynamically.
 
-### 3. OpenMCT Frontend Application (`GUI/server.js` & `index.html`)
-- Serves OpenMCT GUI on port **8081**.
-- Updated costmap image resource URLs in `index.html` to reference port **8081**.
-
-### 4. Dynamic Host Connection Logic in OpenMCT Plugins
-Migrated all hardcoded port references in JavaScript plugins to dynamic hostname resolution (`window.location.hostname || 'localhost'`):
-
-- **Backend ROS Bridge (Port 8080)**:
-  - `GUI/plugins/mission-control/RoverStatusView.js`
-  - `GUI/plugins/mission-control/MissionControlView.js`
-  - `GUI/plugins/Arm-Control/ArmControlView.js`
-  - `GUI/plugins/Arm-Control-FK/ArmControlFKView.js`
-  - `GUI/plugins/Arm-Control-v2/ArmControlV2View.js`
-  - `GUI/plugins/Wheel-Control/WheelControlView.js`
-  - `GUI/plugins/Drilling-Control/DrillingControlView.js`
-  - `GUI/plugins/Drilling-26/Drilling26View.js`
-  - `GUI/plugins/joystick-control/JoystickView.js`
-  - `GUI/plugins/joystick-26/Joystick26View.js`
-  - `GUI/plugins/display/CostmapPlugin.js`
-  - `GUI/plugins/ZED/ZEDPlugin.js`
-  - `GUI/turtlebot-plugin.js`
-  - `GUI/actions/combo-start-plugin.js`
-
-- **Camera MJPEG Stream Server (Port 9090)**:
-  - `GUI/plugins/camera/camera_plugin.js`
-  - `GUI/plugins/mission-control/plugin.js`
+### 3. OpenMCT Camera Plugins (`GUI/plugins/camera/camera_plugin.js` & `GUI/plugins/mission-control/plugin.js`)
+- Integrated Camera 0 (`/dev/video0`) into single camera views, the multi-camera grid dashboard, and root folder composition tree.
 
 ---
 
 ## Verification Results
 
 ### Syntax & Config Verification
-- `python3 -m py_compile GUI/web_camera_server.py GUI/ws_ros2_bridge.py`: **Passed**
-- `docker compose config`: **Passed**
-- Codebase Grep Audit: **Passed** — 0 mismatched port references remain.
+- `python3 -m py_compile GUI/web_camera_server.py scratch/web_camera_server.py`: **Passed**
+- Code audit on `ArmControlFKView.js`: **Passed**
