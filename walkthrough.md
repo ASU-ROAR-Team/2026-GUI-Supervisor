@@ -1,6 +1,6 @@
-# Walkthrough - Network Port Standardization, Camera 0 Addition & FK Arm Control Enhancements
+# Walkthrough - Network Port Standardization, Camera 0 Addition & Low-Latency Stream Optimizations
 
-Standardized network ports across the entire ROAR-Supervisor project, added `/dev/video0` camera feed, optimized camera capture latency, and added float64 multipliers and dynamic bounds controls to the Robotic Arm Control FK plugin.
+Standardized network ports across the entire ROAR-Supervisor project, added `/dev/video0` camera feed, resolved browser console syntax/MIME type errors, implemented an asynchronous fetch-loop stream architecture for zero-latency camera delivery, and added float64 multipliers and dynamic bounds controls to the Robotic Arm Control FK plugin.
 
 ---
 
@@ -14,24 +14,26 @@ Standardized network ports across the entire ROAR-Supervisor project, added `/de
 
 ---
 
-## Key Changes Made
+## Key Bug Fixes & Latency Optimizations
 
-### 1. Camera Server & Latency Optimization (`GUI/web_camera_server.py`)
-- **Added `/dev/video0`**: Expanded camera device list to include `/dev/video0` alongside existing `/dev/video2`, `/dev/video4`, `/dev/video6`, `/dev/video8`, `/dev/video10`.
-- **Zero-Latency V4L2 Buffer Draining**: Refactored `capture_worker()` to continuously poll `cap.read()` without thread sleeping inside the capture loop. This prevents V4L2 kernel driver queue buildup and eliminates video stream lag.
-- **HTML Dashboard Update**: Included Camera 0 in `camNums` array and UI grid cards.
+### 1. Browser Error Fixes (`GUI/index.html` & `GUI/plugins/camera/camera_plugin.js`)
+- **CSS MIME Type Error Fixed**: Removed non-existent stylesheet reference `plugins/Arm-Control-v3/ArmControlV3View.css` from `index.html` which caused Express to return 404 HTML and throw a stylesheet MIME check error.
+- **JavaScript Syntax Error Fixed**: Fixed unclosed template literal in `camera_plugin.js` at line 122 where raw `<style>` tags caused `SyntaxError: Unexpected token '.'` and prevented `window.CameraPlugin` initialization.
 
-### 2. Robotic Arm Control FK Plugin (`GUI/plugins/Arm-Control-FK/ArmControlFKView.js`)
-- **Float64 Multipliers / Factors**: Added per-joint factor inputs (`j0`, `j1`, `j2`, `j3`, `diff_m1`, `diff_m2`, `gripper_servo`). Values sent via WebSocket (`type: 'joint_cmd_fk_custom'`) and published to `/fk_joint_states` now compute `jointValue * factor`.
+### 2. Zero-Latency Camera Fetch Loop (`camera_plugin.js` & `web_camera_server.py`)
+- **Asynchronous Blob Fetch Loop**: Replaced native browser HTML `<img>` MJPEG streaming with an asynchronous `fetch()` loop querying `/api/frame/<cam_num>?t=TIMESTAMP`.
+  - **Eliminated Socket Pool Saturation**: Standard browser connection pools saturate when multiple continuous MJPEG HTTP streams run concurrently. The frame polling approach releases sockets immediately.
+  - **Eliminated Stream Queueing / Backlog**: The client always requests the single most recent server-side frame. If network throughput drops momentarily, frame backlogs are dropped automatically, guaranteeing real-time zero-latency playback.
+- **CORS & Cache Invalidation**: Added `Access-Control-Allow-Origin: *`, `Cache-Control: no-cache, no-store, must-revalidate`, `Pragma: no-cache`, and `Expires: 0` headers to `/api/frame/<cam_num>` in `web_camera_server.py`.
+
+### 3. Robotic Arm Control FK Plugin (`GUI/plugins/Arm-Control-FK/ArmControlFKView.js`)
+- **Float64 Multipliers / Factors**: Added per-joint factor inputs (`j0`, `j1`, `j2`, `j3`, `diff_m1`, `diff_m2`, `gripper_servo`). Output joint angles sent via WebSocket (`type: 'joint_cmd_fk_custom'`) and published to `/fk_joint_states` compute `rawAngle * factor`.
 - **Dynamic Bounds (Min / Max Inputs)**: Added `Min` and `Max` number input fields for each joint control card. Modifying these bounds updates slider limits dynamically.
-
-### 3. OpenMCT Camera Plugins (`GUI/plugins/camera/camera_plugin.js` & `GUI/plugins/mission-control/plugin.js`)
-- Integrated Camera 0 (`/dev/video0`) into single camera views, the multi-camera grid dashboard, and root folder composition tree.
 
 ---
 
-## Verification Results
+## Git Branch Updates
 
-### Syntax & Config Verification
-- `python3 -m py_compile GUI/web_camera_server.py scratch/web_camera_server.py`: **Passed**
-- Code audit on `ArmControlFKView.js`: **Passed**
+All fixes have been committed and pushed to both target branches:
+- **`camera`**: Commit `6d8afcf` (`fix: resolve CSS MIME & JS syntax errors, optimize client camera stream fetch loop for zero latency`)
+- **`start_gui_script`**: Commit `47a9740` (`merge: camera plugin bug fixes and zero-latency fetch loop`)
