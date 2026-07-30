@@ -3,7 +3,7 @@
     'use strict';
 
     class WheelControlView {
-        constructor(container, openmct, wsUrl = "ws://localhost:8080") {
+        constructor(container, openmct, wsUrl = `ws://${window.location.hostname || 'localhost'}:8080`) {
             this.container = container;
             this.openmct   = openmct;
             this.wsUrl     = wsUrl;

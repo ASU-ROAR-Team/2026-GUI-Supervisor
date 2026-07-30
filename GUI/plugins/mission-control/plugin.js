@@ -1,26 +1,33 @@
-// src/plugins/mission-control/plugin.js
+// plugins/mission-control/plugin.js
 
 (function () {
     const MISSION_CONTROL_KEY = 'mission-control';
     const ROVER_STATUS_KEY = 'rover-status';
-    const MISSION_CONTROL_ROOT_KEY = 'mission-control-root';
+    const SUPERVISOR_ROOT_KEY = 'supervisor-root';
     const MISSION_PANEL_KEY = 'mission-panel';
     const STATUS_DISPLAY_KEY = 'status-display';
+    const MULTI_CAM_KEY = 'multi-camera-dashboard';
+    const CAM_0_KEY = 'cam-0-main';
+    const CAM_1_KEY = 'cam-1-front';
+    const CAM_2_KEY = 'cam-2-left';
+    const CAM_3_KEY = 'cam-3-right';
+    const CAM_4_KEY = 'cam-4-rear';
+    const CAM_5_KEY = 'cam-5-arm';
 
     function MissionControlPlugin() {
         return function install(openmct) {
-            console.log('Mission Control Plugin: install function started.');
+            console.log('ROAR Supervisor Plugin: Installing...');
+
+            const host = window.location.hostname || 'localhost';
 
             // 1. Define mission control panel type
             openmct.types.addType(MISSION_CONTROL_KEY, {
                 name: 'Mission Control Panel',
-                description: 'Control panel for rover missions with START/STOP/RESET buttons.',
+                description: 'Control panel for rover missions with START/STOP/RESET commands.',
                 cssClass: 'icon-command',
                 creatable: true,
-                def: {
-                    type: MISSION_CONTROL_KEY
-                },
-                initialize: function (domainObject) {
+                def: { type: MISSION_CONTROL_KEY },
+                initialize(domainObject) {
                     domainObject.name = domainObject.name || 'Mission Control Panel';
                 },
                 form: []
@@ -28,74 +35,125 @@
 
             // 2. Define rover status display type
             openmct.types.addType(ROVER_STATUS_KEY, {
-                name: 'Rover Status Display',
-                description: 'Display rover state and node statuses.',
+                name: 'Rover Status & Node Health Display',
+                description: 'Display rover state, supervisor messages, and monitored ROS2 node CPU/memory/status.',
                 cssClass: 'icon-telemetry',
                 creatable: true,
-                def: {
-                    type: ROVER_STATUS_KEY
-                },
-                initialize: function (domainObject) {
-                    domainObject.name = domainObject.name || 'Rover Status Display';
+                def: { type: ROVER_STATUS_KEY },
+                initialize(domainObject) {
+                    domainObject.name = domainObject.name || 'Rover Status & Node Health Display';
                 },
                 form: []
             });
 
-            // 3. Add Mission Control as root object
+            // 3. Add Supervisor as root object in OpenMCT
             openmct.objects.addRoot({
                 namespace: MISSION_CONTROL_KEY,
-                key: MISSION_CONTROL_ROOT_KEY
+                key: SUPERVISOR_ROOT_KEY
             });
 
-            // 4. Object Provider
+            // 4. Object Provider for Supervisor objects & cameras
             openmct.objects.addProvider(MISSION_CONTROL_KEY, {
                 get: function (identifier) {
-                    console.log('Mission Control Object Provider: Getting object for identifier ->', identifier);
-                    
-                    if (identifier.key === MISSION_CONTROL_ROOT_KEY) {
+                    if (identifier.key === SUPERVISOR_ROOT_KEY) {
                         return Promise.resolve({
                             identifier: identifier,
-                            name: 'Mission Control',
+                            name: '🚀 ROAR Supervisor & System Monitor',
                             type: 'folder',
                             location: 'ROOT'
+                        });
+                    } else if (identifier.key === STATUS_DISPLAY_KEY) {
+                        return Promise.resolve({
+                            identifier: identifier,
+                            name: 'Rover Status & Node Health Display',
+                            type: ROVER_STATUS_KEY,
+                            location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
                         });
                     } else if (identifier.key === MISSION_PANEL_KEY) {
                         return Promise.resolve({
                             identifier: identifier,
                             name: 'Mission Control Panel',
                             type: MISSION_CONTROL_KEY,
-                            location: `${MISSION_CONTROL_KEY}:${MISSION_CONTROL_ROOT_KEY}`
+                            location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
                         });
-                    } else if (identifier.key === STATUS_DISPLAY_KEY) {
+                    } else if (identifier.key === MULTI_CAM_KEY) {
                         return Promise.resolve({
                             identifier: identifier,
-                            name: 'Rover Status Display',
-                            type: ROVER_STATUS_KEY,
-                            location: `${MISSION_CONTROL_KEY}:${MISSION_CONTROL_ROOT_KEY}`
+                            name: '📹 Multi-Camera Grid Dashboard',
+                            type: 'multi-camera',
+                            location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
+                        });
+                    } else if (identifier.key === CAM_0_KEY) {
+                        return Promise.resolve({
+                            identifier: identifier,
+                            name: 'Camera 0 (Main - /dev/video0)',
+                            type: 'camera',
+                            cameraFeedUrl: `http://${host}:9090/api/stream/0`,
+                            location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
+                        });
+                    } else if (identifier.key === CAM_1_KEY) {
+                        return Promise.resolve({
+                            identifier: identifier,
+                            name: 'Camera 1 (Front - /dev/video2)',
+                            type: 'camera',
+                            cameraFeedUrl: `http://${host}:9090/api/stream/2`,
+                            location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
+                        });
+                    } else if (identifier.key === CAM_2_KEY) {
+                        return Promise.resolve({
+                            identifier: identifier,
+                            name: 'Camera 2 (Left - /dev/video4)',
+                            type: 'camera',
+                            cameraFeedUrl: `http://${host}:9090/api/stream/4`,
+                            location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
+                        });
+                    } else if (identifier.key === CAM_3_KEY) {
+                        return Promise.resolve({
+                            identifier: identifier,
+                            name: 'Camera 3 (Right - /dev/video6)',
+                            type: 'camera',
+                            cameraFeedUrl: `http://${host}:9090/api/stream/6`,
+                            location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
+                        });
+                    } else if (identifier.key === CAM_4_KEY) {
+                        return Promise.resolve({
+                            identifier: identifier,
+                            name: 'Camera 4 (Rear - /dev/video8)',
+                            type: 'camera',
+                            cameraFeedUrl: `http://${host}:9090/api/stream/8`,
+                            location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
+                        });
+                    } else if (identifier.key === CAM_5_KEY) {
+                        return Promise.resolve({
+                            identifier: identifier,
+                            name: 'Camera 5 (Arm/Tool - /dev/video10)',
+                            type: 'camera',
+                            cameraFeedUrl: `http://${host}:9090/api/stream/10`,
+                            location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
                         });
                     }
-                    
+
                     return Promise.reject(new Error('Unknown object: ' + identifier.key));
                 }
             });
 
-            // 5. Composition Provider for Mission Control folder
+            // 5. Composition Provider for ROAR Supervisor folder
             openmct.composition.addProvider({
                 appliesTo: function (domainObject) {
                     return domainObject.identifier.namespace === MISSION_CONTROL_KEY &&
-                           domainObject.identifier.key === MISSION_CONTROL_ROOT_KEY;
+                           domainObject.identifier.key === SUPERVISOR_ROOT_KEY;
                 },
                 load: function (domainObject) {
-                    console.log('Loading children for Mission Control folder.');
                     return Promise.resolve([
-                        {
-                            namespace: MISSION_CONTROL_KEY,
-                            key: MISSION_PANEL_KEY
-                        },
-                        {
-                            namespace: MISSION_CONTROL_KEY,
-                            key: STATUS_DISPLAY_KEY
-                        }
+                        { namespace: MISSION_CONTROL_KEY, key: STATUS_DISPLAY_KEY },
+                        { namespace: MISSION_CONTROL_KEY, key: MISSION_PANEL_KEY },
+                        { namespace: MISSION_CONTROL_KEY, key: MULTI_CAM_KEY },
+                        { namespace: MISSION_CONTROL_KEY, key: CAM_0_KEY },
+                        { namespace: MISSION_CONTROL_KEY, key: CAM_1_KEY },
+                        { namespace: MISSION_CONTROL_KEY, key: CAM_2_KEY },
+                        { namespace: MISSION_CONTROL_KEY, key: CAM_3_KEY },
+                        { namespace: MISSION_CONTROL_KEY, key: CAM_4_KEY },
+                        { namespace: MISSION_CONTROL_KEY, key: CAM_5_KEY }
                     ]);
                 }
             });
@@ -105,25 +163,21 @@
                 key: 'mission-control-view',
                 name: 'Mission Control',
                 cssClass: 'icon-command',
-                canView: function (domainObject) {
-                    return domainObject.type === MISSION_CONTROL_KEY;
-                },
-                view: function (domainObject) {
-                    let missionControlInstance = null;
+                canView: (domainObject) => domainObject.type === MISSION_CONTROL_KEY,
+                view: (domainObject) => {
+                    let instance = null;
                     return {
-                        show: function (element) {
+                        show(element) {
                             if (typeof window.MissionControlView === 'undefined') {
-                                console.error('MissionControlView not found. Make sure MissionControlView.js is loaded.');
-                                element.innerHTML = '<p style="color: red;">Error: MissionControlView component not loaded.</p>';
+                                element.innerHTML = '<p style="color: red;">Error: MissionControlView not loaded.</p>';
                                 return;
                             }
-                            missionControlInstance = new window.MissionControlView(element, openmct);
-                            missionControlInstance.render();
+                            instance = new window.MissionControlView(element, openmct);
                         },
-                        destroy: function (element) {
-                            if (missionControlInstance) {
-                                missionControlInstance.destroy();
-                                missionControlInstance = null;
+                        destroy() {
+                            if (instance) {
+                                instance.destroy();
+                                instance = null;
                             }
                         }
                     };
@@ -133,38 +187,32 @@
             // 7. Rover Status Display View Provider
             openmct.objectViews.addProvider({
                 key: 'rover-status-view',
-                name: 'Rover Status',
+                name: 'Rover & Node Status',
                 cssClass: 'icon-telemetry',
-                canView: function (domainObject) {
-                    return domainObject.type === ROVER_STATUS_KEY;
-                },
-                view: function (domainObject) {
-                    let roverStatusInstance = null;
+                canView: (domainObject) => domainObject.type === ROVER_STATUS_KEY,
+                view: (domainObject) => {
+                    let instance = null;
                     return {
-                        show: function (element) {
+                        show(element) {
                             if (typeof window.RoverStatusView === 'undefined') {
-                                console.error('RoverStatusView not found. Make sure RoverStatusView.js is loaded.');
-                                element.innerHTML = '<p style="color: red;">Error: RoverStatusView component not loaded.</p>';
+                                element.innerHTML = '<p style="color: red;">Error: RoverStatusView not loaded.</p>';
                                 return;
                             }
-                            roverStatusInstance = new window.RoverStatusView(element, openmct);
-                            roverStatusInstance.render();
+                            instance = new window.RoverStatusView(element, openmct);
                         },
-                        destroy: function (element) {
-                            if (roverStatusInstance) {
-                                roverStatusInstance.destroy();
-                                roverStatusInstance = null;
+                        destroy() {
+                            if (instance) {
+                                instance.destroy();
+                                instance = null;
                             }
                         }
                     };
                 }
             });
 
-            console.log('Mission Control Plugin installed successfully.');
+            console.log('ROAR Supervisor Plugin installed successfully.');
         };
     }
 
-    // Expose globally
     window.MissionControlPlugin = MissionControlPlugin;
-
 })();

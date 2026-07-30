@@ -3,7 +3,7 @@
     'use strict';
 
     class ArmControlView {
-        constructor(container, openmct, wsUrl = "ws://localhost:8080") {
+        constructor(container, openmct, wsUrl = `ws://${window.location.hostname || 'localhost'}:8080`) {
             this.container = container;
             this.openmct   = openmct;
             this.wsUrl     = wsUrl;
@@ -556,7 +556,7 @@
                 return;
             }
 
-            this.ros = new ROSLIB.Ros({ url: 'ws://localhost:9090' });
+            this.ros = new ROSLIB.Ros({ url: `ws://${window.location.hostname || 'localhost'}:8080` });
 
             this.ros.on('connection', () => {
                 console.log("[ArmControlView] ROSLIB connected");

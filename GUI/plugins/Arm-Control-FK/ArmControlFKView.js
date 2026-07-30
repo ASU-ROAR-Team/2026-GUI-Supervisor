@@ -3,7 +3,7 @@
     'use strict';
 
     class ArmControlFKView {
-        constructor(container, openmct, wsUrl = "ws://localhost:8080") {
+        constructor(container, openmct, wsUrl = `ws://${window.location.hostname || 'localhost'}:8080`) {
             this.container = container;
             this.openmct   = openmct;
             this.wsUrl     = wsUrl;
@@ -14,6 +14,11 @@
             this.jointValues = {
                 j0: 0, j1: 0, j2: 0,
                 j3: 0, diff_m1: 0, diff_m2: 0, gripper_servo: 0
+            };
+
+            this.jointMultipliers = {
+                j0: 1.0, j1: 1.0, j2: 1.0,
+                j3: 1.0, diff_m1: 1.0, diff_m2: 1.0, gripper_servo: 1.0
             };
 
             this.jointRanges = {
@@ -71,6 +76,9 @@
             // DOM refs
             this.fkSliders      = {};
             this.fkDisplaySpans = {};
+            this.fkMinInputs     = {};
+            this.fkMaxInputs     = {};
+            this.fkFactorInputs  = {};
             this.ikSliders      = {};
             this.ikDisplaySpans = {};
 
@@ -126,13 +134,14 @@
             if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
             if (this.mode === 'FK') {
-                // MODIFIED: Custom payload splitting for Python backend routing
+                const getVal = (j) => (this.jointValues[j] || 0) * (this.jointMultipliers[j] !== undefined ? this.jointMultipliers[j] : 1.0);
+
                 const armData = [
-                    this.jointValues['j0'], this.jointValues['j1'], 
-                    this.jointValues['j2'], this.jointValues['j3'],
-                    this.jointValues['diff_m1'], this.jointValues['diff_m2']
+                    getVal('j0'), getVal('j1'), 
+                    getVal('j2'), getVal('j3'),
+                    getVal('diff_m1'), getVal('diff_m2')
                 ];
-                const gripperData = this.jointValues['gripper_servo'];
+                const gripperData = getVal('gripper_servo');
 
                 this.ws.send(JSON.stringify({
                     type: 'joint_cmd_fk_custom',
@@ -204,13 +213,27 @@
                     <div class="controls-grid">
                         ${this.jointNames.map(joint => {
                             const range = this.jointRanges[joint];
+                            const factor = this.jointMultipliers[joint] !== undefined ? this.jointMultipliers[joint] : 1.0;
                             return `
-                                <div class="joint-control">
-                                    <label>${range.label}</label>
-                                    <div class="slider-row">
+                                <div class="joint-control" style="background: rgba(30, 41, 59, 0.6); padding: 12px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 12px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                                        <label style="font-weight: 600; color: #38bdf8; font-size: 0.95rem;">${range.label}</label>
+                                        <div style="display: flex; gap: 10px; align-items: center; font-size: 0.8rem; color: #94a3b8;">
+                                            <label>Min:
+                                                <input type="number" id="fk_${joint}_min" value="${range.min}" step="any" style="width: 55px; background: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 4px; padding: 2px 4px;">
+                                            </label>
+                                            <label>Max:
+                                                <input type="number" id="fk_${joint}_max" value="${range.max}" step="any" style="width: 55px; background: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 4px; padding: 2px 4px;">
+                                            </label>
+                                            <label>Factor:
+                                                <input type="number" id="fk_${joint}_factor" value="${factor}" step="any" style="width: 60px; background: #0f172a; color: #34d399; border: 1px solid #475569; border-radius: 4px; padding: 2px 4px; font-weight: 600;">
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="slider-row" style="display: flex; align-items: center; gap: 12px;">
                                         <input type="range" id="fk_${joint}_slider"
-                                               min="${range.min}" max="${range.max}" value="0" step="0.1">
-                                        <span id="fk_${joint}_display">0</span>
+                                               min="${range.min}" max="${range.max}" value="0" step="0.1" style="flex: 1;">
+                                        <span id="fk_${joint}_display" style="min-width: 140px; text-align: right; font-family: monospace; color: #f8fafc; font-size: 0.85rem;">0.0 (x1.00 = 0.0)</span>
                                     </div>
                                 </div>
                             `;
@@ -317,23 +340,52 @@
         }
 
         bindElements() {
-            // FK Sliders
+            // FK Sliders, Bounds, and Factor Inputs
             this.jointNames.forEach(joint => {
-                const slider  = this.container.querySelector(`#fk_${joint}_slider`);
-                const display = this.container.querySelector(`#fk_${joint}_display`);
+                const slider      = this.container.querySelector(`#fk_${joint}_slider`);
+                const display     = this.container.querySelector(`#fk_${joint}_display`);
+                const minInput    = this.container.querySelector(`#fk_${joint}_min`);
+                const maxInput    = this.container.querySelector(`#fk_${joint}_max`);
+                const factorInput = this.container.querySelector(`#fk_${joint}_factor`);
 
                 this.fkSliders[joint]      = slider;
                 this.fkDisplaySpans[joint] = display;
+                this.fkMinInputs[joint]    = minInput;
+                this.fkMaxInputs[joint]    = maxInput;
+                this.fkFactorInputs[joint] = factorInput;
 
-                slider.oninput = () => {
-                    let val = parseFloat(slider.value);
-                    const range = this.jointRanges[joint];
-                    val = Math.min(Math.max(val, range.min), range.max);
-                    this.jointValues[joint] = val;
-                    slider.value = val;
-                    display.innerText = val.toFixed(1);
+                const updateJointState = () => {
+                    let minVal = parseFloat(minInput.value);
+                    if (isNaN(minVal)) minVal = -180;
+                    let maxVal = parseFloat(maxInput.value);
+                    if (isNaN(maxVal)) maxVal = 180;
+                    if (minVal > maxVal) { const temp = minVal; minVal = maxVal; maxVal = temp; }
+
+                    this.jointRanges[joint].min = minVal;
+                    this.jointRanges[joint].max = maxVal;
+                    slider.min = minVal;
+                    slider.max = maxVal;
+
+                    let factorVal = parseFloat(factorInput.value);
+                    if (isNaN(factorVal)) factorVal = 1.0;
+                    this.jointMultipliers[joint] = factorVal;
+
+                    let rawVal = parseFloat(slider.value);
+                    if (isNaN(rawVal)) rawVal = 0;
+                    rawVal = Math.min(Math.max(rawVal, minVal), maxVal);
+                    this.jointValues[joint] = rawVal;
+                    slider.value = rawVal;
+
+                    const scaledVal = rawVal * factorVal;
+                    display.innerText = `${rawVal.toFixed(1)} (x${factorVal.toFixed(2)} = ${scaledVal.toFixed(1)})`;
+
                     if (this.mode === 'FK') this.sendUpdate();
                 };
+
+                slider.oninput = updateJointState;
+                if (minInput) minInput.onchange = updateJointState;
+                if (maxInput) maxInput.onchange = updateJointState;
+                if (factorInput) factorInput.oninput = updateJointState;
             });
 
             // IK Sliders
@@ -485,7 +537,7 @@
                 return;
             }
 
-            this.ros = new ROSLIB.Ros({ url: 'ws://localhost:9090' });
+            this.ros = new ROSLIB.Ros({ url: `ws://${window.location.hostname || 'localhost'}:8080` });
             this.ros.on('connection', () => { this.setupROS(); });
             this.ros.on('error',      (e) => console.error("[ArmControlFKView] ROSLIB error", e));
         }
@@ -506,7 +558,7 @@
 
         publishJointStates() {
             if (!this.jointPublisher) return;
-            const pos = this.jointNames.map(j => this.jointValues[j] * Math.PI / 180);
+            const pos = this.jointNames.map(j => (this.jointValues[j] * (this.jointMultipliers[j] !== undefined ? this.jointMultipliers[j] : 1.0)) * Math.PI / 180);
             this.jointPublisher.publish({ name: this.jointNames, position: pos });
         }
 

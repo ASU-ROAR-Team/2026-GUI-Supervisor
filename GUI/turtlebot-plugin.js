@@ -1,6 +1,7 @@
 function TurtlebotPlugin() {
     return function install(openmct) {
-        const ros = new ROSLIB.Ros({ url: 'ws://localhost:9090' });
+        const rosHost = window.location.hostname || 'localhost';
+        const ros = new ROSLIB.Ros({ url: `ws://${rosHost}:8080` });
         
         // ROS Connection Management
         ros.on('connection', () => {
@@ -16,7 +17,7 @@ function TurtlebotPlugin() {
         ros.on('close', () => {
             console.warn('[ROS] Connection lost. Reconnecting...');
             updateConnectionStatus(false);
-            setTimeout(() => ros.connect('ws://localhost:9090'), 3000);
+            setTimeout(() => ros.connect(`ws://${rosHost}:8080`), 3000);
         });
 
         // Connection status indicator
