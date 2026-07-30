@@ -18,7 +18,7 @@
                 form: [
                     {
                         key: 'cameraFeedUrl',
-                        name: 'Camera Feed URL (e.g. http://localhost:8080/api/stream/2)',
+                        name: 'Camera Feed URL (e.g. http://localhost:9090/api/stream/2)',
                         control: 'textfield',
                         required: true,
                         cssClass: 'l-input'
@@ -112,8 +112,8 @@
                                             <div class="cam-card">
                                                 <div class="cam-card-title">${camLabels[i]}</div>
                                                 <div class="cam-frame">
-                                                    <img src="http://${host}:8080/api/stream/${num}" alt="${camLabels[i]}" 
-                                                         onerror="this.onerror=null; this.src='http://${host}:8080/api/frame/${num}';">
+                                                    <img src="http://${host}:9090/api/stream/${num}" alt="${camLabels[i]}" 
+                                                         onerror="this.onerror=null; this.src='http://${host}:9090/api/frame/${num}';">
                                                 </div>
                                             </div>
                                         `).join('')}

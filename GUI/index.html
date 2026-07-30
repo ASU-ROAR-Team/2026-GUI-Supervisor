@@ -86,7 +86,7 @@
       // Install all custom plugins
       openmct.install(window.StartComboPlugin());
       openmct.install(window.CostmapMapPlugin({
-          defaultCostmapSourceUrl: 'http://localhost:8080/images/new_yard.png',
+          defaultCostmapSourceUrl: 'http://' + (window.location.hostname || 'localhost') + ':8081/images/new_yard.png',
           defaultPixelOffsetX: 70,
           defaultPixelOffsetY: 246,
           defaultPixelsPerMeter: 20,

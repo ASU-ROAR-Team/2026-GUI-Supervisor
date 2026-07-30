@@ -84,7 +84,7 @@ If the server is not already running, run it now -
 npm start
 ```
 
-If you open a web browser and navigate to http://localhost:8080/ you will see the Open MCT application running. Currently it is populated with one object named `My Items`. 
+If you open a web browser and navigate to http://localhost:8081/ you will see the Open MCT application running. Currently it is populated with one object named `My Items`. 
 
 ![Open MCT](images/openmct-empty.png)
 

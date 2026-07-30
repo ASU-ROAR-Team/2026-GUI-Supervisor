@@ -93,7 +93,7 @@
                         if (ws && ws.readyState !== WebSocket.CLOSED) return;
 
                         const wsHost = window.location.hostname || 'localhost';
-                        ws = new WebSocket(`ws://${wsHost}:9090`);
+                        ws = new WebSocket(`ws://${wsHost}:8080`);
 
                         ws.onopen = () => {
                             console.log('[ZEDPlugin] Connected to WS bridge');

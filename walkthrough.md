@@ -1,33 +1,56 @@
-# Walkthrough - Camera Streams & ROAR Supervisor OpenMCT Integration
+# Walkthrough - Network Port Standardization & OpenMCT Integration
 
-Integrated the 5 multi-camera stream server into OpenMCT plugins, created the ROAR Supervisor & System Monitor dashboard inside OpenMCT, eliminated network port conflicts for remote laptop access, and updated Docker Compose for host device streaming.
+Standardized network ports across the entire ROAR-Supervisor project, eliminating port conflicts and enabling dynamic network host resolution for remote laptop and multi-container access.
+
+---
+
+## Standardized Port Schema
+
+| Service | Port | Protocol | Access URL | Description |
+|---|---|---|---|---|
+| **Backend (ROS2 WebSocket Bridge)** | `8080` | WebSocket | `ws://<laptop_ip>:8080` | `GUI/ws_ros2_bridge.py` & `base_station.launch` |
+| **Frontend (OpenMCT Web Application)** | `8081` | HTTP | `http://<laptop_ip>:8081` | `GUI/server.js` |
+| **Camera Server (Multi-Camera MJPEG)** | `9090` | HTTP / MJPEG | `http://<laptop_ip>:9090` | `GUI/web_camera_server.py` |
 
 ---
 
 ## Key Changes Made
 
-### 1. Multi-Camera Stream Server (`GUI/web_camera_server.py`)
-- Created `GUI/web_camera_server.py` supporting all 5 USB camera video devices (`/dev/video2`, `/dev/video4`, `/dev/video6`, `/dev/video8`, `/dev/video10`).
-- Added a high-performance, low-latency MJPEG HTTP stream endpoint (`/api/stream/<cam_num>`) alongside frame polling (`/api/frame/<cam_num>`).
-- Set HTTP camera server port to `8080` (accessible from remote laptops via `http://<laptop_ip>:8080`).
+### 1. Backend ROS2 WebSocket Bridge (`GUI/ws_ros2_bridge.py` & `GUI/ros/base_station.launch`)
+- Configured ROS2 WebSocket bridge to run on port **8080**.
+- Updated `base_station.launch` rosbridge websocket port argument to **8080**.
 
-### 2. ROS2 WebSocket Bridge & Dynamic Host Resolution (`GUI/ws_ros2_bridge.py` & JS Plugins)
-- Moved `ws_ros2_bridge.py` to port `9090` to resolve the port 8080 conflict with `web_camera_server.py`.
-- Updated all OpenMCT JS plugins (`RoverStatusView.js`, `MissionControlView.js`, `ZEDPlugin.js`, `ArmControlView.js`, `JoystickView.js`, `WheelControlView.js`, `CostmapPlugin.js`, etc.) to dynamically construct WebSocket URLs using `window.location.hostname || 'localhost'` on port `9090`.
+### 2. Camera MJPEG Stream Server (`GUI/web_camera_server.py`)
+- Standardized camera HTTP MJPEG streaming server on port **9090**.
+- Supports 5 video feeds (`/dev/video2`, `/dev/video4`, `/dev/video6`, `/dev/video8`, `/dev/video10`) at `/api/stream/<num>` and `/api/frame/<num>`.
+- Updated `free_video_devices()` and `cleanup.sh` to clear port `9090/tcp`.
 
-### 3. OpenMCT ROAR Supervisor & Camera Plugins (`camera_plugin.js` & `plugin.js`)
-- Updated OpenMCT plugin architecture to feature a **🚀 ROAR Supervisor & System Monitor** root folder containing:
-  - **Rover Status & Node Health Display** (displays state, messages, and live CPU/Memory/PID status of monitored ROS2 nodes published by Supervisor).
-  - **Mission Control Panel** (START/STOP/RESET buttons sending commands to ROS2 supervisor node).
-  - **📹 5-Camera Grid Dashboard** (displays all 5 live camera streams simultaneously in a responsive grid).
-  - **Individual Camera Streams** (Camera 1 Front, Camera 2 Left, Camera 3 Right, Camera 4 Rear, Camera 5 Arm/Tool).
+### 3. OpenMCT Frontend Application (`GUI/server.js` & `index.html`)
+- Serves OpenMCT GUI on port **8081**.
+- Updated costmap image resource URLs in `index.html` to reference port **8081**.
 
-### 4. Docker & Root Docker Compose Configuration (`Dockerfile` & `docker-compose.yml`)
-- Updated `GUI/Dockerfile` with OpenCV, python dependencies (`websockets`, `psutil`), and multi-server launch command.
-- Updated root `docker-compose.yml`:
-  - Added `privileged: true` to `gui_container` for host USB video device access.
-  - Set startup command: `python3 ws_ros2_bridge.py & python3 web_camera_server.py & node server.js`.
-  - Maintained `supervisor_container` running `ros2 launch supervisor multi_launch.py`.
+### 4. Dynamic Host Connection Logic in OpenMCT Plugins
+Migrated all hardcoded port references in JavaScript plugins to dynamic hostname resolution (`window.location.hostname || 'localhost'`):
+
+- **Backend ROS Bridge (Port 8080)**:
+  - `GUI/plugins/mission-control/RoverStatusView.js`
+  - `GUI/plugins/mission-control/MissionControlView.js`
+  - `GUI/plugins/Arm-Control/ArmControlView.js`
+  - `GUI/plugins/Arm-Control-FK/ArmControlFKView.js`
+  - `GUI/plugins/Arm-Control-v2/ArmControlV2View.js`
+  - `GUI/plugins/Wheel-Control/WheelControlView.js`
+  - `GUI/plugins/Drilling-Control/DrillingControlView.js`
+  - `GUI/plugins/Drilling-26/Drilling26View.js`
+  - `GUI/plugins/joystick-control/JoystickView.js`
+  - `GUI/plugins/joystick-26/Joystick26View.js`
+  - `GUI/plugins/display/CostmapPlugin.js`
+  - `GUI/plugins/ZED/ZEDPlugin.js`
+  - `GUI/turtlebot-plugin.js`
+  - `GUI/actions/combo-start-plugin.js`
+
+- **Camera MJPEG Stream Server (Port 9090)**:
+  - `GUI/plugins/camera/camera_plugin.js`
+  - `GUI/plugins/mission-control/plugin.js`
 
 ---
 
@@ -36,10 +59,4 @@ Integrated the 5 multi-camera stream server into OpenMCT plugins, created the RO
 ### Syntax & Config Verification
 - `python3 -m py_compile GUI/web_camera_server.py GUI/ws_ros2_bridge.py`: **Passed**
 - `docker compose config`: **Passed**
-
-### Access Ports Overview
-| Service | Port | Protocol | Access URL |
-|---|---|---|---|
-| OpenMCT Dashboard | `8081` | HTTP | `http://<laptop_ip>:8081` |
-| Web Camera Server | `8080` | HTTP / MJPEG | `http://<laptop_ip>:8080` |
-| ROS2 Bridge | `9090` | WebSocket | `ws://<laptop_ip>:9090` |
+- Codebase Grep Audit: **Passed** — 0 mismatched port references remain.

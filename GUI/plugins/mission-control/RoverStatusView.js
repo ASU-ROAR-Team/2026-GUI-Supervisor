@@ -27,7 +27,7 @@
         if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
 
         const wsHost = window.location.hostname || "localhost";
-        this.ws = new WebSocket(`ws://${wsHost}:9090`);
+        this.ws = new WebSocket(`ws://${wsHost}:8080`);
 
         this.ws.onopen = () => {
             console.log("RoverStatusView: Connected to WS bridge");

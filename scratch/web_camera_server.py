@@ -36,11 +36,11 @@ cam_states = {
 }
 
 def free_video_devices():
-    """Ensure no background processes are locking camera devices or port 8080."""
+    """Ensure no background processes are locking camera devices or port 9090."""
     print("Checking for background processes holding camera devices...")
     try:
         subprocess.run(["pkill", "-f", "ffmpeg.*udp://"], stderr=subprocess.DEVNULL)
-        subprocess.run(["fuser", "-k", "8080/tcp"], stderr=subprocess.DEVNULL)
+        subprocess.run(["fuser", "-k", "9090/tcp"], stderr=subprocess.DEVNULL)
         time.sleep(0.5)
     except Exception:
         pass
@@ -368,7 +368,7 @@ class CameraHandler(BaseHTTPRequestHandler):
         self.send_error(404)
 
 def main():
-    port = 8080
+    port = 9090
     free_video_devices()
 
     # Start capture threads for each camera

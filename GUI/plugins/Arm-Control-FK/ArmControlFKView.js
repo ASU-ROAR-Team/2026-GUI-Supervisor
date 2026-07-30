@@ -3,7 +3,7 @@
     'use strict';
 
     class ArmControlFKView {
-        constructor(container, openmct, wsUrl = `ws://${window.location.hostname || 'localhost'}:9090`) {
+        constructor(container, openmct, wsUrl = `ws://${window.location.hostname || 'localhost'}:8080`) {
             this.container = container;
             this.openmct   = openmct;
             this.wsUrl     = wsUrl;
@@ -485,7 +485,7 @@
                 return;
             }
 
-            this.ros = new ROSLIB.Ros({ url: 'ws://localhost:9090' });
+            this.ros = new ROSLIB.Ros({ url: `ws://${window.location.hostname || 'localhost'}:8080` });
             this.ros.on('connection', () => { this.setupROS(); });
             this.ros.on('error',      (e) => console.error("[ArmControlFKView] ROSLIB error", e));
         }

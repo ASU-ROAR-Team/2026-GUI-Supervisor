@@ -87,7 +87,7 @@
                             identifier: identifier,
                             name: 'Camera 1 (Front - /dev/video2)',
                             type: 'camera',
-                            cameraFeedUrl: `http://${host}:8080/api/stream/2`,
+                            cameraFeedUrl: `http://${host}:9090/api/stream/2`,
                             location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
                         });
                     } else if (identifier.key === CAM_2_KEY) {
@@ -95,7 +95,7 @@
                             identifier: identifier,
                             name: 'Camera 2 (Left - /dev/video4)',
                             type: 'camera',
-                            cameraFeedUrl: `http://${host}:8080/api/stream/4`,
+                            cameraFeedUrl: `http://${host}:9090/api/stream/4`,
                             location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
                         });
                     } else if (identifier.key === CAM_3_KEY) {
@@ -103,7 +103,7 @@
                             identifier: identifier,
                             name: 'Camera 3 (Right - /dev/video6)',
                             type: 'camera',
-                            cameraFeedUrl: `http://${host}:8080/api/stream/6`,
+                            cameraFeedUrl: `http://${host}:9090/api/stream/6`,
                             location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
                         });
                     } else if (identifier.key === CAM_4_KEY) {
@@ -111,7 +111,7 @@
                             identifier: identifier,
                             name: 'Camera 4 (Rear - /dev/video8)',
                             type: 'camera',
-                            cameraFeedUrl: `http://${host}:8080/api/stream/8`,
+                            cameraFeedUrl: `http://${host}:9090/api/stream/8`,
                             location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
                         });
                     } else if (identifier.key === CAM_5_KEY) {
@@ -119,7 +119,7 @@
                             identifier: identifier,
                             name: 'Camera 5 (Arm/Tool - /dev/video10)',
                             type: 'camera',
-                            cameraFeedUrl: `http://${host}:8080/api/stream/10`,
+                            cameraFeedUrl: `http://${host}:9090/api/stream/10`,
                             location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
                         });
                     }
