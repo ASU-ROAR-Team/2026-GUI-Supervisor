@@ -7,12 +7,25 @@
     const MISSION_PANEL_KEY = 'mission-panel';
     const STATUS_DISPLAY_KEY = 'status-display';
     const MULTI_CAM_KEY = 'multi-camera-dashboard';
-    const CAM_0_KEY = 'cam-0-main';
-    const CAM_1_KEY = 'cam-1-front';
-    const CAM_2_KEY = 'cam-2-left';
-    const CAM_3_KEY = 'cam-3-right';
-    const CAM_4_KEY = 'cam-4-rear';
-    const CAM_5_KEY = 'cam-5-arm';
+
+    let cachedActiveCameras = null;
+
+    async function fetchActiveCameras() {
+        const host = window.location.hostname || 'localhost';
+        try {
+            const res = await fetch(`http://${host}:9090/api/cameras`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.cameras && data.cameras.length > 0) {
+                    cachedActiveCameras = data.cameras;
+                    return cachedActiveCameras;
+                }
+            }
+        } catch (e) {
+            console.warn('Could not fetch active cameras for ROAR Supervisor:', e);
+        }
+        return cachedActiveCameras || [];
+    }
 
     function MissionControlPlugin() {
         return function install(openmct) {
@@ -54,83 +67,48 @@
 
             // 4. Object Provider for Supervisor objects & cameras
             openmct.objects.addProvider(MISSION_CONTROL_KEY, {
-                get: function (identifier) {
+                get: async function (identifier) {
                     if (identifier.key === SUPERVISOR_ROOT_KEY) {
-                        return Promise.resolve({
+                        return {
                             identifier: identifier,
                             name: '🚀 ROAR Supervisor & System Monitor',
                             type: 'folder',
                             location: 'ROOT'
-                        });
+                        };
                     } else if (identifier.key === STATUS_DISPLAY_KEY) {
-                        return Promise.resolve({
+                        return {
                             identifier: identifier,
                             name: 'Rover Status & Node Health Display',
                             type: ROVER_STATUS_KEY,
                             location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
-                        });
+                        };
                     } else if (identifier.key === MISSION_PANEL_KEY) {
-                        return Promise.resolve({
+                        return {
                             identifier: identifier,
                             name: 'Mission Control Panel',
                             type: MISSION_CONTROL_KEY,
                             location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
-                        });
+                        };
                     } else if (identifier.key === MULTI_CAM_KEY) {
-                        return Promise.resolve({
+                        return {
                             identifier: identifier,
                             name: '📹 Multi-Camera Grid Dashboard',
                             type: 'multi-camera',
                             location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
-                        });
-                    } else if (identifier.key === CAM_0_KEY) {
-                        return Promise.resolve({
+                        };
+                    } else if (identifier.key.startsWith('cam-')) {
+                        const camNum = identifier.key.replace('cam-', '');
+                        const cameras = await fetchActiveCameras();
+                        const found = cameras.find(c => String(c.cam_num) === String(camNum));
+                        const displayName = found ? `${found.name} (${found.dev})` : `Camera #${camNum} (/dev/video${camNum})`;
+
+                        return {
                             identifier: identifier,
-                            name: 'Camera 0 (Main - /dev/video0)',
+                            name: `📷 ${displayName}`,
                             type: 'camera',
-                            cameraFeedUrl: `http://${host}:9090/api/stream/0`,
+                            cameraFeedUrl: `http://${host}:9090/api/stream/${camNum}`,
                             location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
-                        });
-                    } else if (identifier.key === CAM_1_KEY) {
-                        return Promise.resolve({
-                            identifier: identifier,
-                            name: 'Camera 1 (Front - /dev/video2)',
-                            type: 'camera',
-                            cameraFeedUrl: `http://${host}:9090/api/stream/2`,
-                            location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
-                        });
-                    } else if (identifier.key === CAM_2_KEY) {
-                        return Promise.resolve({
-                            identifier: identifier,
-                            name: 'Camera 2 (Left - /dev/video4)',
-                            type: 'camera',
-                            cameraFeedUrl: `http://${host}:9090/api/stream/4`,
-                            location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
-                        });
-                    } else if (identifier.key === CAM_3_KEY) {
-                        return Promise.resolve({
-                            identifier: identifier,
-                            name: 'Camera 3 (Right - /dev/video6)',
-                            type: 'camera',
-                            cameraFeedUrl: `http://${host}:9090/api/stream/6`,
-                            location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
-                        });
-                    } else if (identifier.key === CAM_4_KEY) {
-                        return Promise.resolve({
-                            identifier: identifier,
-                            name: 'Camera 4 (Rear - /dev/video8)',
-                            type: 'camera',
-                            cameraFeedUrl: `http://${host}:9090/api/stream/8`,
-                            location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
-                        });
-                    } else if (identifier.key === CAM_5_KEY) {
-                        return Promise.resolve({
-                            identifier: identifier,
-                            name: 'Camera 5 (Arm/Tool - /dev/video10)',
-                            type: 'camera',
-                            cameraFeedUrl: `http://${host}:9090/api/stream/10`,
-                            location: `${MISSION_CONTROL_KEY}:${SUPERVISOR_ROOT_KEY}`
-                        });
+                        };
                     }
 
                     return Promise.reject(new Error('Unknown object: ' + identifier.key));
@@ -143,18 +121,26 @@
                     return domainObject.identifier.namespace === MISSION_CONTROL_KEY &&
                            domainObject.identifier.key === SUPERVISOR_ROOT_KEY;
                 },
-                load: function (domainObject) {
-                    return Promise.resolve([
+                load: async function (domainObject) {
+                    const cameras = await fetchActiveCameras();
+                    const items = [
                         { namespace: MISSION_CONTROL_KEY, key: STATUS_DISPLAY_KEY },
                         { namespace: MISSION_CONTROL_KEY, key: MISSION_PANEL_KEY },
-                        { namespace: MISSION_CONTROL_KEY, key: MULTI_CAM_KEY },
-                        { namespace: MISSION_CONTROL_KEY, key: CAM_0_KEY },
-                        { namespace: MISSION_CONTROL_KEY, key: CAM_1_KEY },
-                        { namespace: MISSION_CONTROL_KEY, key: CAM_2_KEY },
-                        { namespace: MISSION_CONTROL_KEY, key: CAM_3_KEY },
-                        { namespace: MISSION_CONTROL_KEY, key: CAM_4_KEY },
-                        { namespace: MISSION_CONTROL_KEY, key: CAM_5_KEY }
-                    ]);
+                        { namespace: MISSION_CONTROL_KEY, key: MULTI_CAM_KEY }
+                    ];
+
+                    if (cameras.length === 0) {
+                        // Fallback default camera IDs if web server is not currently reachable
+                        [0, 2, 4, 11, 13, 15].forEach(num => {
+                            items.push({ namespace: MISSION_CONTROL_KEY, key: `cam-${num}` });
+                        });
+                    } else {
+                        cameras.forEach(cam => {
+                            items.push({ namespace: MISSION_CONTROL_KEY, key: `cam-${cam.cam_num}` });
+                        });
+                    }
+
+                    return items;
                 }
             });
 
@@ -210,7 +196,7 @@
                 }
             });
 
-            console.log('ROAR Supervisor Plugin installed successfully.');
+            console.log('ROAR Supervisor Plugin installed successfully with Dynamic Camera Discovery.');
         };
     }
 
