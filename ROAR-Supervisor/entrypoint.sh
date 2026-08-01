@@ -1,15 +1,29 @@
 #!/bin/bash
 set -e
 
-# Setup ROS2 environment
+# 1. Source ROS 2 base environment
 source /opt/ros/humble/setup.bash
 
-# Build the newly mounted workspace packages
-cd /ros2_ws
-colcon build
+# 2. Source micro-ROS workspace
+if [ -f /uros_ws/install/setup.bash ]; then
+    source /uros_ws/install/setup.bash
+fi
 
-# Source the newly built workspace
-source /ros2_ws/install/setup.bash
+# 3. Source Supervisor workspace
+if [ -f /roar_ws/install/setup.bash ]; then
+    source /roar_ws/install/setup.bash
+fi
 
-# Execute the command passed from docker-compose
+# Optional: Only run 'colcon build' at boot IF you mounted source code dynamically from host
+# cd /roar_ws && colcon build && source /roar_ws/install/setup.bash
+
+# 4. Start micro-ROS Agent in the background
+echo "Starting micro-ROS Agent on /dev/ttyUSB0..."
+ros2 run micro_ros_agent micro_ros_agent serial -b 115200 --dev /dev/ttyUSB0 &
+
+# 5. Wait a moment for the agent to initialize
+sleep 2
+
+# 6. Execute supervisor command (passed from CMD in Dockerfile or command in docker-compose)
+echo "Starting Supervisor process..."
 exec "$@"
