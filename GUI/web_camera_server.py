@@ -15,39 +15,72 @@ import time
 import subprocess
 import glob
 import json
+import os
+import numpy as np
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 
+def get_device_name(dev_path):
+    """Read the hardware camera model name from /sys/class/video4linux/videoN/name if available."""
+    dev_basename = os.path.basename(dev_path)
+    sysfs_name_path = f"/sys/class/video4linux/{dev_basename}/name"
+    if os.path.exists(sysfs_name_path):
+        try:
+            with open(sysfs_name_path, 'r') as f:
+                name = f.read().strip()
+                if name:
+                    return name
+        except Exception:
+            pass
+    return f"Camera ({dev_path})"
+
 def detect_camera_devices():
-    """Dynamically scan /dev/video* nodes and return a list of available/working camera paths."""
-    print("🔍 Scanning for available camera device nodes...")
+    """Dynamically scan /dev/video* nodes (accommodating RealSense, ZED, & USB webcams) and return working camera paths & model names."""
+    print("🔍 Scanning for available camera device nodes (Webcams, RealSense, ZED)...")
     dev_paths = sorted(
         glob.glob('/dev/video*'),
         key=lambda x: int(x.replace('/dev/video', '')) if x.replace('/dev/video', '').isdigit() else 999
     )
     
     available = []
+    names = {}
+    
     for dev in dev_paths:
+        dev_name = get_device_name(dev)
         cap = cv2.VideoCapture(dev, cv2.CAP_V4L2)
-        if cap.isOpened():
-            ret, _ = cap.read()
+        if not cap.isOpened():
             cap.release()
+            continue
+
+        # RealSense & ZED cameras often require a few warmup frame attempts upon initial open
+        ret = False
+        frame = None
+        for _ in range(5):
+            ret, frame = cap.read()
             if ret:
-                print(f"  ✅ Detected active camera node: {dev}")
-                available.append(dev)
-            else:
-                print(f"  ⚠️ Skipping {dev} (opened, but cannot capture frames - likely metadata node)")
+                break
+            time.sleep(0.02)
+            
+        cap.release()
+        
+        if ret and frame is not None:
+            print(f"  ✅ Detected active camera: {dev} -> {dev_name}")
+            available.append(dev)
+            names[dev] = dev_name
         else:
-            cap.release()
+            print(f"  ⚠️ Skipping {dev} ({dev_name}) - cannot capture frames (likely metadata or control node)")
 
     if not available:
         print("⚠️ Warning: No active video capture nodes found.")
     else:
-        print(f"✅ Found {len(available)} active camera(s): {', '.join(available)}")
+        print(f"✅ Found {len(available)} active camera(s):")
+        for dev in available:
+            print(f"   • {dev}: {names[dev]}")
     
-    return available
+    return available, names
 
 DEV_NODES = []
+DEV_NAMES = {}
 latest_jpeg = {}
 frame_locks = {}
 
@@ -74,11 +107,13 @@ def free_video_devices():
         pass
 
 def capture_worker(dev_path):
-    """Continuously captures frames from a camera device with zero latency buffer draining."""
-    print(f"Initializing Camera {dev_path}...")
+    """Continuously captures frames from a camera device (supporting RealSense depth/IR & ZED wide stereo) with zero latency buffer draining."""
+    dev_name = DEV_NAMES.get(dev_path, dev_path)
+    print(f"Initializing Camera {dev_path} ({dev_name})...")
     
     cap = cv2.VideoCapture(dev_path, cv2.CAP_V4L2)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    cap.set(cv2.CAP_PROP_CONVERT_RGB, 1)
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, stream_config["width"])
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, stream_config["height"])
@@ -87,16 +122,16 @@ def capture_worker(dev_path):
         print(f"❌ ERROR: Could not open {dev_path}.")
         return
 
-    print(f"✅ Camera {dev_path} active!")
+    print(f"✅ Camera {dev_path} ({dev_name}) active!")
     last_encode_time = 0.0
     
     while True:
         ret, frame = cap.read()
-        if not ret:
+        if not ret or frame is None:
             time.sleep(0.005)
             continue
 
-        if not cam_states[dev_path]["enabled"]:
+        if not cam_states.get(dev_path, {}).get("enabled", True):
             time.sleep(0.1)
             continue
 
@@ -107,17 +142,37 @@ def capture_worker(dev_path):
 
         last_encode_time = now
 
-        # 1. Resize if required
+        # 1. Handle RealSense 16-bit Depth Maps (Z16 format)
+        if frame.dtype == np.uint16 or frame.dtype == np.int16:
+            frame_8u = cv2.convertScaleAbs(frame, alpha=0.03)
+            frame = cv2.applyColorMap(frame_8u, cv2.COLORMAP_JET)
+
+        # 2. Handle 1-channel Grayscale / Infrared (RealSense IR or mono feeds)
+        if len(frame.shape) == 2 or (len(frame.shape) == 3 and frame.shape[2] == 1):
+            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+
+        # 3. Handle aspect ratio for ZED side-by-side stereo & wide Field of View (FoV) feeds
         h, w = frame.shape[:2]
-        if w != stream_config["width"] or h != stream_config["height"]:
-            frame = cv2.resize(frame, (stream_config["width"], stream_config["height"]))
+        target_w, target_h = stream_config["width"], stream_config["height"]
+        aspect = w / float(h) if h > 0 else 1.33
+        
+        if aspect > 1.6:
+            # Wide image (e.g. ZED stereo 2560x720) -> resize width while preserving wide aspect ratio
+            new_w = target_w
+            new_h = max(1, int(target_w / aspect))
+        else:
+            new_w, new_h = target_w, target_h
 
-        # 2. Apply Grayscale if requested globally or per-camera
-        cam_color = cam_states[dev_path]["color"]
+        if (w, h) != (new_w, new_h):
+            frame = cv2.resize(frame, (new_w, new_h))
+
+        # 4. Apply Grayscale filter if requested globally or per-camera
+        cam_color = cam_states.get(dev_path, {}).get("color", "rgb")
         if stream_config["global_color"] == "gray" or cam_color == "gray":
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            if len(frame.shape) == 3 and frame.shape[2] == 3:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        # 3. JPEG Compression
+        # 5. JPEG Compression
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), stream_config["quality"]]
         _, jpeg_buffer = cv2.imencode('.jpg', frame, encode_param)
         
@@ -236,7 +291,26 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.wfile.write(b'{"status":"ok"}')
             return
 
-        # 4. HTML5 Dashboard with Per-Camera Toggles
+            # 4. API: List Detected Cameras & Metadata
+        if self.path == '/api/cameras':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            cameras_data = [
+                {
+                    "dev": dev,
+                    "cam_num": dev.replace("/dev/video", ""),
+                    "name": DEV_NAMES.get(dev, dev),
+                    "enabled": cam_states.get(dev, {}).get("enabled", True),
+                    "color": cam_states.get(dev, {}).get("color", "rgb")
+                }
+                for dev in DEV_NODES
+            ]
+            self.wfile.write(json.dumps({"cameras": cameras_data}).encode('utf-8'))
+            return
+
+        # 5. HTML5 Dashboard with Per-Camera Toggles
         if self.path == '/' or self.path.startswith('/?'):
             self.send_response(200)
             self.send_header('Content-Type', 'text/html')
@@ -322,16 +396,17 @@ class CameraHandler(BaseHTTPRequestHandler):
                 html += """
         <div style="grid-column: 1 / -1; text-align: center; padding: 40px; background: var(--card-bg); border-radius: 12px;">
             <h2>⚠️ No Cameras Detected</h2>
-            <p style="color: #94a3b8;">Please connect V4L2 video capture devices to the system.</p>
+            <p style="color: #94a3b8;">Please connect V4L2 video capture devices (Webcams, RealSense, ZED) to the system.</p>
         </div>"""
             else:
                 for idx, dev in enumerate(DEV_NODES, start=1):
                     cam_num = dev.replace("/dev/video", "")
+                    dev_name = DEV_NAMES.get(dev, f"Camera {dev}")
                     html += f"""
         <div class="card">
             <div class="card-header">
                 <div class="card-title">
-                    <span>Camera #{idx} ({dev})</span>
+                    <span>📷 #{idx}: {dev_name} <small style="opacity: 0.7; font-size: 0.85em;">({dev})</small></span>
                 </div>
                 <div class="card-actions">
                     <button id="color-btn-{cam_num}" class="btn-toggle" onclick="toggleColor('{cam_num}')">🎨 RGB</button>
@@ -339,7 +414,7 @@ class CameraHandler(BaseHTTPRequestHandler):
                 </div>
             </div>
             <div class="img-container">
-                <img id="cam-{cam_num}" src="" alt="Camera {dev} Stream">
+                <img id="cam-{cam_num}" src="" alt="{dev_name} Stream">
                 <div id="paused-{cam_num}" class="paused-overlay">⏸ STREAM PAUSED</div>
                 <div class="fps-counter" id="fps-{cam_num}">0 FPS | 0ms</div>
             </div>
@@ -445,8 +520,8 @@ def main():
     port = 9090
     free_video_devices()
 
-    global DEV_NODES, latest_jpeg, frame_locks, cam_states
-    DEV_NODES = detect_camera_devices()
+    global DEV_NODES, DEV_NAMES, latest_jpeg, frame_locks, cam_states
+    DEV_NODES, DEV_NAMES = detect_camera_devices()
 
     latest_jpeg = {dev: None for dev in DEV_NODES}
     frame_locks = {dev: threading.Lock() for dev in DEV_NODES}
@@ -460,7 +535,9 @@ def main():
     server = ThreadedHTTPServer(('0.0.0.0', port), CameraHandler)
     print(f"\n==================================================================")
     print(f"🚀 Multi-Camera Web Server Active on Port {port}")
-    print(f"   Streaming {len(DEV_NODES)} detected camera(s): {', '.join(DEV_NODES) if DEV_NODES else 'None'}")
+    print(f"   Streaming {len(DEV_NODES)} detected camera(s):")
+    for dev in DEV_NODES:
+        print(f"   • {dev}: {DEV_NAMES.get(dev, 'Unknown')}")
     print(f"==================================================================\n")
 
     try:
