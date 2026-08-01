@@ -98,15 +98,32 @@
                                 return;
                             }
 
-                            cameraElement = document.createElement('img');
-                            cameraElement.style.width = '100%';
-                            cameraElement.style.height = '100%';
-                            cameraElement.style.objectFit = 'contain';
+                            const camNum = url.includes('/api/stream/') ? url.split('/').pop() : '';
+                            const devNodeLabel = camNum ? `/dev/video${camNum}` : 'V4L2 Device';
+                            const titleName = domainObject.name || `Camera (${devNodeLabel})`;
 
-                            element.appendChild(cameraElement);
+                            element.innerHTML = `
+                                <div style="display: flex; flex-direction: column; height: 100%; background: #0f172a; border-radius: 8px; overflow: hidden; box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; border: 1px solid #334155;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: #1e293b; border-bottom: 1px solid #334155;">
+                                        <div style="font-weight: 600; color: #38bdf8; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+                                            <span>${titleName}</span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <span style="font-family: monospace; font-size: 0.75rem; background: #334155; color: #94a3b8; padding: 3px 8px; border-radius: 4px;">Node: ${devNodeLabel}</span>
+                                            <span style="display: flex; align-items: center; gap: 5px; font-size: 0.75rem; color: #4ade80; font-weight: 600;">
+                                                <span style="height: 8px; width: 8px; background: #4ade80; border-radius: 50%; display: inline-block;"></span> LIVE
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div style="flex: 1; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden;">
+                                        <img id="single-cam-frame-${camNum || 'default'}" alt="${titleName}" style="width: 100%; height: 100%; object-fit: contain;">
+                                    </div>
+                                </div>
+                            `;
+
+                            cameraElement = element.querySelector('img');
 
                             if (url.includes('/api/stream/')) {
-                                const camNum = url.split('/').pop();
                                 const frameUrl = `http://${host}:9090/api/frame/${camNum}`;
                                 stopStream = startLowLatencyStream(cameraElement, frameUrl);
                             } else {
