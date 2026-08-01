@@ -111,14 +111,20 @@ def free_video_devices():
 def capture_worker(dev_path):
     """Continuously captures frames from a camera device (supporting RealSense depth/IR & ZED wide stereo) with zero latency buffer draining."""
     dev_name = DEV_NAMES.get(dev_path, dev_path)
+    is_zed = "ZED" in dev_name.upper()
+    is_realsense = "REALSENSE" in dev_name.upper()
+    
     print(f"Initializing Camera {dev_path} ({dev_name})...")
     
     cap = cv2.VideoCapture(dev_path, cv2.CAP_V4L2)
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, stream_config["width"])
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, stream_config["height"])
-    cap.set(cv2.CAP_PROP_FPS, stream_config["fps_cap"])
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+    # For standard webcams, request target resolution; for ZED/RealSense, let V4L2 open in native hardware resolution to prevent select() timeouts
+    if not is_zed and not is_realsense:
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, stream_config["width"])
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, stream_config["height"])
+        cap.set(cv2.CAP_PROP_FPS, stream_config["fps_cap"])
 
     if not cap.isOpened():
         print(f"❌ ERROR: Could not open {dev_path}.")
@@ -126,12 +132,24 @@ def capture_worker(dev_path):
 
     print(f"✅ Camera {dev_path} ({dev_name}) active!")
     last_encode_time = 0.0
+    failed_grab_count = 0
     
     while True:
         # Continuously drain the kernel V4L2 buffer with cap.grab() for zero buffer lag
         if not cap.grab():
-            time.sleep(0.005)
+            failed_grab_count += 1
+            if failed_grab_count > 100:
+                print(f"⚠️ Warning: {dev_path} ({dev_name}) experiencing stream timeouts. Re-opening V4L2 node...")
+                cap.release()
+                time.sleep(0.5)
+                cap = cv2.VideoCapture(dev_path, cv2.CAP_V4L2)
+                cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                failed_grab_count = 0
+            time.sleep(0.01)
             continue
+
+        failed_grab_count = 0
 
         if not cam_states.get(dev_path, {}).get("enabled", True):
             time.sleep(0.05)
