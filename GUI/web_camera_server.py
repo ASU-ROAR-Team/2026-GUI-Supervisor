@@ -16,6 +16,7 @@ import subprocess
 import glob
 import json
 import os
+import argparse
 import numpy as np
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
@@ -90,7 +91,7 @@ stream_config = {
     "height": 480,
     "quality": 50,
     "fps_cap": 30,
-    "global_color": "rgb"  # "rgb" or "gray"
+    "global_color": "gray"  # Default to "gray" for minimum bandwidth & lowest latency
 }
 
 # Per-camera settings: enabled status & color mode
@@ -389,8 +390,8 @@ class CameraHandler(BaseHTTPRequestHandler):
             <div class="control-group">
                 <label for="globalColor">Global Mode:</label>
                 <select id="globalColor" onchange="updateGlobalConfig()">
-                    <option value="rgb" selected>RGB Color</option>
-                    <option value="gray">Grayscale (B&W)</option>
+                    <option value="gray" {"selected" if stream_config["global_color"] == "gray" else ""}>Grayscale (B&W)</option>
+                    <option value="rgb" {"selected" if stream_config["global_color"] == "rgb" else ""}>RGB Color</option>
                 </select>
             </div>
         </div>
@@ -408,6 +409,8 @@ class CameraHandler(BaseHTTPRequestHandler):
                 for idx, dev in enumerate(DEV_NODES, start=1):
                     cam_num = dev.replace("/dev/video", "")
                     dev_name = DEV_NAMES.get(dev, f"Camera {dev}")
+                    initial_cam_color = cam_states.get(dev, {}).get("color", stream_config["global_color"])
+                    btn_color_label = "🏁 GRAY" if initial_cam_color == "gray" else "🎨 RGB"
                     html += f"""
         <div class="card">
             <div class="card-header">
@@ -415,7 +418,7 @@ class CameraHandler(BaseHTTPRequestHandler):
                     <span>📷 #{idx}: {dev_name} <small style="opacity: 0.7; font-size: 0.85em;">({dev})</small></span>
                 </div>
                 <div class="card-actions">
-                    <button id="color-btn-{cam_num}" class="btn-toggle" onclick="toggleColor('{cam_num}')">🎨 RGB</button>
+                    <button id="color-btn-{cam_num}" class="btn-toggle" onclick="toggleColor('{cam_num}')">{btn_color_label}</button>
                     <button id="stream-btn-{cam_num}" class="btn-toggle btn-on" onclick="toggleStream('{cam_num}')">🟢 ON</button>
                 </div>
             </div>
@@ -426,14 +429,16 @@ class CameraHandler(BaseHTTPRequestHandler):
             </div>
         </div>"""
 
+            initial_color_mode = stream_config["global_color"]
             html += f"""
     </div>
 
     <script>
         const camNums = {cam_nums_json};
+        const initialMode = "{initial_color_mode}";
         const camState = {{}};
         camNums.forEach(num => {{
-            camState[num] = {{ enabled: true, color: "rgb" }};
+            camState[num] = {{ enabled: true, color: initialMode }};
         }});
 
         async function startCameraLoop(camNum) {{
@@ -523,7 +528,28 @@ class CameraHandler(BaseHTTPRequestHandler):
         self.send_error(404)
 
 def main():
-    port = 9090
+    parser = argparse.ArgumentParser(description="High-Performance Multi-Camera Web Server")
+    parser.add_argument(
+        "--mode", "--color-mode",
+        choices=["gray", "rgb"],
+        default="gray",
+        help="Initial streaming color mode: 'gray' (grayscale, default) or 'rgb' (RGB color)"
+    )
+    parser.add_argument("--port", type=int, default=9090, help="Web server port (default: 9090)")
+    parser.add_argument("--width", type=int, default=640, help="Stream width (default: 640)")
+    parser.add_argument("--height", type=int, default=480, help="Stream height (default: 480)")
+    parser.add_argument("--quality", type=int, default=50, help="JPEG quality 10-95 (default: 50)")
+    parser.add_argument("--fps", type=int, default=30, help="FPS cap (default: 30)")
+    
+    args = parser.parse_args()
+
+    stream_config["global_color"] = args.mode
+    stream_config["width"] = args.width
+    stream_config["height"] = args.height
+    stream_config["quality"] = args.quality
+    stream_config["fps_cap"] = args.fps
+
+    port = args.port
     free_video_devices()
 
     global DEV_NODES, DEV_NAMES, latest_jpeg, frame_locks, cam_states
@@ -531,17 +557,20 @@ def main():
 
     latest_jpeg = {dev: None for dev in DEV_NODES}
     frame_locks = {dev: threading.Lock() for dev in DEV_NODES}
-    cam_states = {dev: {"enabled": True, "color": "rgb"} for dev in DEV_NODES}
+    cam_states = {dev: {"enabled": True, "color": args.mode} for dev in DEV_NODES}
 
     # Start capture threads for each camera
     for dev in DEV_NODES:
         t = threading.Thread(target=capture_worker, args=(dev,), daemon=True)
         t.start()
 
+    mode_label = "GRAYSCALE (Low Latency / 1-Channel)" if args.mode == "gray" else "RGB COLOR (Full Color)"
+
     server = ThreadedHTTPServer(('0.0.0.0', port), CameraHandler)
     print(f"\n==================================================================")
     print(f"🚀 Multi-Camera Web Server Active on Port {port}")
-    print(f"   Streaming {len(DEV_NODES)} detected camera(s):")
+    print(f"🎨 Initial Color Mode: {mode_label}")
+    print(f"📷 Streaming {len(DEV_NODES)} detected camera(s):")
     for dev in DEV_NODES:
         print(f"   • {dev}: {DEV_NAMES.get(dev, 'Unknown')}")
     print(f"==================================================================\n")
