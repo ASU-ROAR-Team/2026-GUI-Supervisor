@@ -120,7 +120,7 @@ def capture_worker(dev_path):
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-    # For standard webcams, request target resolution; for ZED/RealSense, let V4L2 open in native hardware resolution to prevent select() timeouts
+    # For standard webcams, request target resolution; for ZED/RealSense, let V4L2 open in native hardware resolution
     if not is_zed and not is_realsense:
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, stream_config["width"])
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, stream_config["height"])
@@ -132,27 +132,15 @@ def capture_worker(dev_path):
 
     print(f"✅ Camera {dev_path} ({dev_name}) active!")
     last_encode_time = 0.0
-    failed_grab_count = 0
     
     while True:
-        # Continuously drain the kernel V4L2 buffer with cap.grab() for zero buffer lag
-        if not cap.grab():
-            failed_grab_count += 1
-            if failed_grab_count > 100:
-                print(f"⚠️ Warning: {dev_path} ({dev_name}) experiencing stream timeouts. Re-opening V4L2 node...")
-                cap.release()
-                time.sleep(0.5)
-                cap = cv2.VideoCapture(dev_path, cv2.CAP_V4L2)
-                cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-                failed_grab_count = 0
-            time.sleep(0.01)
-            continue
-
-        failed_grab_count = 0
-
         if not cam_states.get(dev_path, {}).get("enabled", True):
             time.sleep(0.05)
+            continue
+
+        ret, frame = cap.read()
+        if not ret or frame is None:
+            time.sleep(0.01)
             continue
 
         now = time.time()
@@ -161,11 +149,6 @@ def capture_worker(dev_path):
             continue
 
         last_encode_time = now
-
-        # Retrieve and decode frame array
-        ret, frame = cap.retrieve()
-        if not ret or frame is None:
-            continue
 
         # 1. Handle RealSense 16-bit Depth Maps (Z16 format)
         if frame.dtype == np.uint16 or frame.dtype == np.int16:
@@ -601,10 +584,11 @@ def main():
     frame_locks = {dev: threading.Lock() for dev in DEV_NODES}
     cam_states = {dev: {"enabled": True, "color": args.mode} for dev in DEV_NODES}
 
-    # Start capture threads for each camera
+    # Start capture threads for each camera with staggered delays to prevent USB bus saturation
     for dev in DEV_NODES:
         t = threading.Thread(target=capture_worker, args=(dev,), daemon=True)
         t.start()
+        time.sleep(0.15)
 
     mode_label = "GRAYSCALE (Low Latency / 1-Channel)" if args.mode == "gray" else "RGB COLOR (Full Color)"
     zed_label = f"ZED Mono ({args.zed_mode.upper()} Lens Only)" if args.zed_mode != "full" else "ZED Stereo Pair (Both Lenses)"
