@@ -13,14 +13,43 @@ import cv2
 import threading
 import time
 import subprocess
+import glob
+import json
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 
-DEV_NODES = ["/dev/video0", "/dev/video2", "/dev/video4", "/dev/video6", "/dev/video8", "/dev/video10"]
+def detect_camera_devices():
+    """Dynamically scan /dev/video* nodes and return a list of available/working camera paths."""
+    print("🔍 Scanning for available camera device nodes...")
+    dev_paths = sorted(
+        glob.glob('/dev/video*'),
+        key=lambda x: int(x.replace('/dev/video', '')) if x.replace('/dev/video', '').isdigit() else 999
+    )
+    
+    available = []
+    for dev in dev_paths:
+        cap = cv2.VideoCapture(dev, cv2.CAP_V4L2)
+        if cap.isOpened():
+            ret, _ = cap.read()
+            cap.release()
+            if ret:
+                print(f"  ✅ Detected active camera node: {dev}")
+                available.append(dev)
+            else:
+                print(f"  ⚠️ Skipping {dev} (opened, but cannot capture frames - likely metadata node)")
+        else:
+            cap.release()
 
-# Shared thread-safe frame buffer
-latest_jpeg = {dev: None for dev in DEV_NODES}
-frame_locks = {dev: threading.Lock() for dev in DEV_NODES}
+    if not available:
+        print("⚠️ Warning: No active video capture nodes found.")
+    else:
+        print(f"✅ Found {len(available)} active camera(s): {', '.join(available)}")
+    
+    return available
+
+DEV_NODES = []
+latest_jpeg = {}
+frame_locks = {}
 
 # Global & Per-Camera configurations
 stream_config = {
@@ -32,9 +61,7 @@ stream_config = {
 }
 
 # Per-camera settings: enabled status & color mode
-cam_states = {
-    dev: {"enabled": True, "color": "rgb"} for dev in DEV_NODES
-}
+cam_states = {}
 
 def free_video_devices():
     """Ensure no background processes are locking camera devices or port 9090."""
@@ -215,14 +242,17 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'text/html')
             self.end_headers()
             
-            html = """<!DOCTYPE html>
+            cam_nums = [dev.replace("/dev/video", "") for dev in DEV_NODES]
+            cam_nums_json = json.dumps(cam_nums)
+
+            html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>5 Camera Realtime Control Dashboard</title>
+    <title>Camera Control Dashboard ({len(DEV_NODES)} Detected)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        :root {
+        :root {{
             --bg-color: #0f172a;
             --card-bg: #1e293b;
             --accent-color: #38bdf8;
@@ -230,36 +260,36 @@ class CameraHandler(BaseHTTPRequestHandler):
             --border-color: #334155;
             --success-color: #10b981;
             --danger-color: #ef4444;
-        }
-        * { box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
-        header { max-width: 1400px; margin: 0 auto 20px auto; background: var(--card-bg); padding: 18px 25px; border-radius: 12px; border: 1px solid var(--border-color); }
-        .header-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; }
-        h1 { margin: 0; font-size: 1.5rem; color: var(--accent-color); }
-        .controls { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color); }
-        .control-group { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
-        select, button, input[type=range] { background: #0f172a; color: white; border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
-        button:hover { border-color: var(--accent-color); }
-        .btn-toggle { font-weight: 600; padding: 4px 10px; border-radius: 6px; }
-        .btn-on { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }
-        .btn-off { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 20px; max-width: 1400px; margin: 0 auto; }
-        .card { background: var(--card-bg); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); }
-        .card-header { padding: 12px 16px; background: #334155; font-weight: 600; font-size: 0.95rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .card-title { display: flex; align-items: center; gap: 8px; }
-        .card-actions { display: flex; align-items: center; gap: 8px; }
-        .img-container { width: 100%; aspect-ratio: 4/3; background: #000; display: flex; justify-content: center; align-items: center; position: relative; }
-        .img-container img { width: 100%; height: 100%; object-fit: contain; }
-        .paused-overlay { position: absolute; color: #94a3b8; font-size: 1.1rem; font-weight: 600; display: none; }
-        .fps-counter { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.75); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; color: #38bdf8; font-family: monospace; }
-        .badge { background: #3b82f6; color: white; font-size: 0.75rem; padding: 4px 8px; border-radius: 4px; font-weight: normal; }
+        }}
+        * {{ box-sizing: border-box; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }}
+        header {{ max-width: 1400px; margin: 0 auto 20px auto; background: var(--card-bg); padding: 18px 25px; border-radius: 12px; border: 1px solid var(--border-color); }}
+        .header-top {{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; }}
+        h1 {{ margin: 0; font-size: 1.5rem; color: var(--accent-color); }}
+        .controls {{ display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color); }}
+        .control-group {{ display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }}
+        select, button, input[type=range] {{ background: #0f172a; color: white; border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }}
+        button:hover {{ border-color: var(--accent-color); }}
+        .btn-toggle {{ font-weight: 600; padding: 4px 10px; border-radius: 6px; }}
+        .btn-on {{ background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }}
+        .btn-off {{ background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }}
+        .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 20px; max-width: 1400px; margin: 0 auto; }}
+        .card {{ background: var(--card-bg); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); }}
+        .card-header {{ padding: 12px 16px; background: #334155; font-weight: 600; font-size: 0.95rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }}
+        .card-title {{ display: flex; align-items: center; gap: 8px; }}
+        .card-actions {{ display: flex; align-items: center; gap: 8px; }}
+        .img-container {{ width: 100%; aspect-ratio: 4/3; background: #000; display: flex; justify-content: center; align-items: center; position: relative; }}
+        .img-container img {{ width: 100%; height: 100%; object-fit: contain; }}
+        .paused-overlay {{ position: absolute; color: #94a3b8; font-size: 1.1rem; font-weight: 600; display: none; }}
+        .fps-counter {{ position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.75); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; color: #38bdf8; font-family: monospace; }}
+        .badge {{ background: #3b82f6; color: white; font-size: 0.75rem; padding: 4px 8px; border-radius: 4px; font-weight: normal; }}
     </style>
 </head>
 <body>
 
     <header>
         <div class="header-top">
-            <h1>🎥 5 Camera Control Dashboard</h1>
+            <h1>🎥 Camera Control Dashboard ({len(DEV_NODES)} Detected)</h1>
             <span class="badge">JPEG / MJPEG Stream</span>
         </div>
         <div class="controls">
@@ -288,9 +318,16 @@ class CameraHandler(BaseHTTPRequestHandler):
 
     <div class="grid">
 """
-            for idx, dev in enumerate(DEV_NODES, start=1):
-                cam_num = dev.replace("/dev/video", "")
-                html += f"""
+            if not DEV_NODES:
+                html += """
+        <div style="grid-column: 1 / -1; text-align: center; padding: 40px; background: var(--card-bg); border-radius: 12px;">
+            <h2>⚠️ No Cameras Detected</h2>
+            <p style="color: #94a3b8;">Please connect V4L2 video capture devices to the system.</p>
+        </div>"""
+            else:
+                for idx, dev in enumerate(DEV_NODES, start=1):
+                    cam_num = dev.replace("/dev/video", "")
+                    html += f"""
         <div class="card">
             <div class="card-header">
                 <div class="card-title">
@@ -308,21 +345,17 @@ class CameraHandler(BaseHTTPRequestHandler):
             </div>
         </div>"""
 
-            html += """
+            html += f"""
     </div>
 
     <script>
-        const camNums = ["0", "2", "4", "6", "8", "10"];
-        const camState = {
-            "0": { enabled: true, color: "rgb" },
-            "2": { enabled: true, color: "rgb" },
-            "4": { enabled: true, color: "rgb" },
-            "6": { enabled: true, color: "rgb" },
-            "8": { enabled: true, color: "rgb" },
-            "10": { enabled: true, color: "rgb" }
-        };
+        const camNums = {cam_nums_json};
+        const camState = {{}};
+        camNums.forEach(num => {{
+            camState[num] = {{ enabled: true, color: "rgb" }};
+        }});
 
-        async function startCameraLoop(camNum) {
+        async function startCameraLoop(camNum) {{
             const imgEl = document.getElementById('cam-' + camNum);
             const fpsEl = document.getElementById('fps-' + camNum);
             const pausedEl = document.getElementById('paused-' + camNum);
@@ -331,46 +364,46 @@ class CameraHandler(BaseHTTPRequestHandler):
             let lastFpsUpdate = performance.now();
             let currentFps = 0;
 
-            while (true) {
-                if (!camState[camNum].enabled) {
+            while (true) {{
+                if (!camState[camNum].enabled) {{
                     imgEl.style.opacity = '0.2';
                     pausedEl.style.display = 'block';
                     fpsEl.textContent = 'PAUSED';
                     await new Promise(r => setTimeout(r, 200));
                     continue;
-                } else {
+                }} else {{
                     imgEl.style.opacity = '1.0';
                     pausedEl.style.display = 'none';
-                }
+                }}
 
                 const t0 = performance.now();
-                try {
+                try {{
                     const response = await fetch('/api/frame/' + camNum + '?t=' + Date.now());
-                    if (response.ok) {
+                    if (response.ok) {{
                         const blob = await response.blob();
                         const oldUrl = imgEl.src;
                         imgEl.src = URL.createObjectURL(blob);
-                        if (oldUrl && oldUrl.startsWith('blob:')) {
+                        if (oldUrl && oldUrl.startsWith('blob:')) {{
                             URL.revokeObjectURL(oldUrl);
-                        }
+                        }}
                         frameCount++;
-                    }
-                } catch (e) {}
+                    }}
+                }} catch (e) {{}}
 
                 const latency = Math.round(performance.now() - t0);
                 const now = performance.now();
-                if (now - lastFpsUpdate >= 1000) {
+                if (now - lastFpsUpdate >= 1000) {{
                     currentFps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
                     frameCount = 0;
                     lastFpsUpdate = now;
-                }
-                fpsEl.textContent = `${currentFps} FPS | ${latency}ms`;
+                }}
+                fpsEl.textContent = `${{currentFps}} FPS | ${{latency}}ms`;
 
                 await new Promise(r => setTimeout(r, 10));
-            }
-        }
+            }}
+        }}
 
-        function toggleStream(camNum) {
+        function toggleStream(camNum) {{
             camState[camNum].enabled = !camState[camNum].enabled;
             const btn = document.getElementById('stream-btn-' + camNum);
             const isEnabled = camState[camNum].enabled;
@@ -378,25 +411,25 @@ class CameraHandler(BaseHTTPRequestHandler):
             btn.className = 'btn-toggle ' + (isEnabled ? 'btn-on' : 'btn-off');
             btn.textContent = isEnabled ? '🟢 ON' : '🔴 OFF';
 
-            fetch(`/api/control?cam=${camNum}&enabled=${isEnabled ? '1' : '0'}`);
-        }
+            fetch(`/api/control?cam=${{camNum}}&enabled=${{isEnabled ? '1' : '0'}}`);
+        }}
 
-        function toggleColor(camNum) {
+        function toggleColor(camNum) {{
             camState[camNum].color = (camState[camNum].color === 'rgb') ? 'gray' : 'rgb';
             const btn = document.getElementById('color-btn-' + camNum);
             const isRgb = (camState[camNum].color === 'rgb');
 
             btn.textContent = isRgb ? '🎨 RGB' : '🏁 GRAY';
-            fetch(`/api/control?cam=${camNum}&color=${camState[camNum].color}`);
-        }
+            fetch(`/api/control?cam=${{camNum}}&color=${{camState[camNum].color}}`);
+        }}
 
-        function updateGlobalConfig() {
+        function updateGlobalConfig() {{
             const res = document.getElementById('resSelect').value;
             const quality = document.getElementById('qualitySlider').value;
             const globalColor = document.getElementById('globalColor').value;
             document.getElementById('qualityVal').textContent = quality + '%';
-            fetch(`/api/control?res=${res}&quality=${quality}&global_color=${globalColor}`);
-        }
+            fetch(`/api/control?res=${{res}}&quality=${{quality}}&global_color=${{globalColor}}`);
+        }}
 
         // Initialize loops
         camNums.forEach(num => startCameraLoop(num));
@@ -412,6 +445,13 @@ def main():
     port = 9090
     free_video_devices()
 
+    global DEV_NODES, latest_jpeg, frame_locks, cam_states
+    DEV_NODES = detect_camera_devices()
+
+    latest_jpeg = {dev: None for dev in DEV_NODES}
+    frame_locks = {dev: threading.Lock() for dev in DEV_NODES}
+    cam_states = {dev: {"enabled": True, "color": "rgb"} for dev in DEV_NODES}
+
     # Start capture threads for each camera
     for dev in DEV_NODES:
         t = threading.Thread(target=capture_worker, args=(dev,), daemon=True)
@@ -420,6 +460,7 @@ def main():
     server = ThreadedHTTPServer(('0.0.0.0', port), CameraHandler)
     print(f"\n==================================================================")
     print(f"🚀 Multi-Camera Web Server Active on Port {port}")
+    print(f"   Streaming {len(DEV_NODES)} detected camera(s): {', '.join(DEV_NODES) if DEV_NODES else 'None'}")
     print(f"==================================================================\n")
 
     try:
