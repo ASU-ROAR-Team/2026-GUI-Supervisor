@@ -43,6 +43,7 @@ You can customize the initial startup color mode, resolution, quality, and port 
 | Flag | Options / Format | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `--mode`, `--color-mode` | `gray`, `rgb` | `gray` | Initial streaming color mode (grayscale for low latency) |
+| `--zed-mode` | `left`, `right`, `full` | `left` | ZED camera view mode (single left lens, right lens, or stereo pair) |
 | `--port` | Integer | `9090` | Web server TCP port |
 | `--width` | Integer | `640` | Initial stream width in pixels |
 | `--height` | Integer | `480` | Initial stream height in pixels |
@@ -51,9 +52,19 @@ You can customize the initial startup color mode, resolution, quality, and port 
 
 ### Usage Examples
 
-- **Start in Grayscale mode (default, lowest latency):**
+- **Start in Grayscale mode with ZED Left Lens only (default, lowest latency):**
   ```bash
   python3 GUI/web_camera_server.py
+  ```
+
+- **Start with ZED Right Lens only:**
+  ```bash
+  python3 GUI/web_camera_server.py --zed-mode right
+  ```
+
+- **Start with Full ZED Stereo Pair (both lenses side-by-side):**
+  ```bash
+  python3 GUI/web_camera_server.py --zed-mode full
   ```
 
 - **Start in Full RGB Color mode:**
@@ -84,6 +95,9 @@ Once running, access the interactive dashboard in your browser:
 | `GET /api/control?<params>` | `JSON` | Dynamic stream control query endpoint |
 
 #### Control Query Examples:
+- Set ZED mode to Left lens: `/api/control?zed_mode=left`
+- Set ZED mode to Right lens: `/api/control?zed_mode=right`
+- Set ZED mode to Stereo Pair: `/api/control?zed_mode=full`
 - Toggle single camera mode to RGB: `/api/control?cam=0&color=rgb`
 - Toggle single camera mode to Grayscale: `/api/control?cam=0&color=gray`
 - Pause / Enable single camera: `/api/control?cam=0&enabled=0` (or `enabled=1`)
@@ -99,7 +113,9 @@ Once running, access the interactive dashboard in your browser:
    - 16-bit depth maps (`Z16`) are automatically converted and colormapped (`COLORMAP_JET`) into thermal-style depth visuals.
    - 1-channel Infrared (IR) streams rendered cleanly as grayscale.
 3. **Stereolabs ZED Stereo Cameras (ZED 2i / ZED / ZED Mini)**:
-   - Wide side-by-side stereo feeds automatically preserve aspect ratio (e.g., 2560x720) without visual distortion.
+   - Stereolabs ZED cameras output a wide composite stereo frame (e.g., 2560x720).
+   - By default (`--zed-mode left`), the web server crops the frame to the **Left Lens only**, delivering a standard single-camera video feed over the network and cutting bandwidth in half.
+   - You can switch to `--zed-mode right` (Right Lens) or `--zed-mode full` (Stereo Pair) via CLI flags or live from the Web Dashboard.
 
 ---
 

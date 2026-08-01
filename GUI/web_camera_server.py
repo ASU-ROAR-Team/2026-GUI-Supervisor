@@ -91,7 +91,8 @@ stream_config = {
     "height": 480,
     "quality": 50,
     "fps_cap": 30,
-    "global_color": "gray"  # Default to "gray" for minimum bandwidth & lowest latency
+    "global_color": "gray",  # Default to "gray" for minimum bandwidth & lowest latency
+    "zed_mode": "left"       # "left" (single left lens), "right" (single right lens), "full" (stereo side-by-side)
 }
 
 # Per-camera settings: enabled status & color mode
@@ -157,20 +158,23 @@ def capture_worker(dev_path):
         if len(frame.shape) == 2 or (len(frame.shape) == 3 and frame.shape[2] == 1):
             frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
 
-        # 3. Handle aspect ratio for ZED side-by-side stereo & wide Field of View (FoV) feeds
+        # 3. Handle aspect ratio & single-lens cropping for ZED side-by-side stereo & wide Field of View (FoV) feeds
         h, w = frame.shape[:2]
-        target_w, target_h = stream_config["width"], stream_config["height"]
         aspect = w / float(h) if h > 0 else 1.33
         
         if aspect > 1.6:
-            # Wide image (e.g. ZED stereo 2560x720) -> resize width while preserving wide aspect ratio
-            new_w = target_w
-            new_h = max(1, int(target_w / aspect))
-        else:
-            new_w, new_h = target_w, target_h
+            # Wide image (e.g. ZED stereo 2560x720) -> Crop to single lens view if requested
+            zed_mode = stream_config.get("zed_mode", "left")
+            if zed_mode == "left":
+                frame = frame[:, :w // 2]
+            elif zed_mode == "right":
+                frame = frame[:, w // 2:]
+            # Recalculate dimensions after cropping
+            h, w = frame.shape[:2]
 
-        if (w, h) != (new_w, new_h):
-            frame = cv2.resize(frame, (new_w, new_h))
+        target_w, target_h = stream_config["width"], stream_config["height"]
+        if (w, h) != (target_w, target_h):
+            frame = cv2.resize(frame, (target_w, target_h))
 
         # 4. Apply Grayscale filter if requested globally or per-camera
         cam_color = cam_states.get(dev_path, {}).get("color", "rgb")
@@ -281,6 +285,10 @@ class CameraHandler(BaseHTTPRequestHandler):
                     stream_config['width'], stream_config['height'] = 640, 480
             if 'global_color' in query:
                 stream_config['global_color'] = query['global_color'][0]
+            if 'zed_mode' in query:
+                mode = query['zed_mode'][0]
+                if mode in ['left', 'right', 'full']:
+                    stream_config['zed_mode'] = mode
 
             # Per-Camera Controls (cam=X&enabled=1/0&color=rgb/gray)
             if 'cam' in query:
@@ -392,6 +400,14 @@ class CameraHandler(BaseHTTPRequestHandler):
                 <select id="globalColor" onchange="updateGlobalConfig()">
                     <option value="gray" {"selected" if stream_config["global_color"] == "gray" else ""}>Grayscale (B&W)</option>
                     <option value="rgb" {"selected" if stream_config["global_color"] == "rgb" else ""}>RGB Color</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="zedMode">ZED Stereo Mode:</label>
+                <select id="zedMode" onchange="updateGlobalConfig()">
+                    <option value="left" {"selected" if stream_config["zed_mode"] == "left" else ""}>ZED Left Lens (Mono)</option>
+                    <option value="right" {"selected" if stream_config["zed_mode"] == "right" else ""}>ZED Right Lens (Mono)</option>
+                    <option value="full" {"selected" if stream_config["zed_mode"] == "full" else ""}>ZED Both (Stereo Pair)</option>
                 </select>
             </div>
         </div>
@@ -513,8 +529,9 @@ class CameraHandler(BaseHTTPRequestHandler):
             const res = document.getElementById('resSelect').value;
             const quality = document.getElementById('qualitySlider').value;
             const globalColor = document.getElementById('globalColor').value;
+            const zedMode = document.getElementById('zedMode').value;
             document.getElementById('qualityVal').textContent = quality + '%';
-            fetch(`/api/control?res=${{res}}&quality=${{quality}}&global_color=${{globalColor}}`);
+            fetch(`/api/control?res=${{res}}&quality=${{quality}}&global_color=${{globalColor}}&zed_mode=${{zedMode}}`);
         }}
 
         // Initialize loops
@@ -535,6 +552,12 @@ def main():
         default="gray",
         help="Initial streaming color mode: 'gray' (grayscale, default) or 'rgb' (RGB color)"
     )
+    parser.add_argument(
+        "--zed-mode",
+        choices=["left", "right", "full"],
+        default="left",
+        help="ZED camera stereo view mode: 'left' (default, single left lens), 'right' (single right lens), or 'full' (full stereo pair)"
+    )
     parser.add_argument("--port", type=int, default=9090, help="Web server port (default: 9090)")
     parser.add_argument("--width", type=int, default=640, help="Stream width (default: 640)")
     parser.add_argument("--height", type=int, default=480, help="Stream height (default: 480)")
@@ -544,6 +567,7 @@ def main():
     args = parser.parse_args()
 
     stream_config["global_color"] = args.mode
+    stream_config["zed_mode"] = args.zed_mode
     stream_config["width"] = args.width
     stream_config["height"] = args.height
     stream_config["quality"] = args.quality
@@ -565,11 +589,13 @@ def main():
         t.start()
 
     mode_label = "GRAYSCALE (Low Latency / 1-Channel)" if args.mode == "gray" else "RGB COLOR (Full Color)"
+    zed_label = f"ZED Mono ({args.zed_mode.upper()} Lens Only)" if args.zed_mode != "full" else "ZED Stereo Pair (Both Lenses)"
 
     server = ThreadedHTTPServer(('0.0.0.0', port), CameraHandler)
     print(f"\n==================================================================")
     print(f"🚀 Multi-Camera Web Server Active on Port {port}")
     print(f"🎨 Initial Color Mode: {mode_label}")
+    print(f"👁️ ZED Stereo Mode:   {zed_label}")
     print(f"📷 Streaming {len(DEV_NODES)} detected camera(s):")
     for dev in DEV_NODES:
         print(f"   • {dev}: {DEV_NAMES.get(dev, 'Unknown')}")
