@@ -55,6 +55,8 @@
                 home: { j0: 0, j1: 0,   j2: 0,  j3: 0, diff_m1: 0,  diff_m2: 0, gripper_servo: 0 },
                 rest: { j0: 0, j1: -45, j2: 90, j3: 0, diff_m1: 45, diff_m2: 0, gripper_servo: 0 }
             };
+            this.customPresets = this.loadCustomPresets();
+
 
             this.ikPresets = {
                 home: { x: 50, y: 0,  z: 20, roll: 0, pitch: 0,   yaw: 0 },
@@ -84,6 +86,115 @@
 
             // Keyboard tracking
             this.keysPressed = {};
+        }
+
+        // ─── Custom Presets ──────────────────────────────────────────────────
+
+        loadCustomPresets() {
+            try {
+                const stored = localStorage.getItem('ArmControlFK_customPresets');
+                if (stored) {
+                    return JSON.parse(stored);
+                }
+            } catch (e) {
+                console.error("[ArmControlFKView] Failed to load custom presets from localStorage", e);
+            }
+            return {};
+        }
+
+        saveCustomPresets() {
+            try {
+                localStorage.setItem('ArmControlFK_customPresets', JSON.stringify(this.customPresets));
+            } catch (e) {
+                console.error("[ArmControlFKView] Failed to save custom presets to localStorage", e);
+            }
+        }
+
+        renderPresetButtonsHTML() {
+            let html = `
+                <button class="preset-button" id="fkHomeBtn">Home Position</button>
+                <button class="preset-button" id="fkRestBtn">Rest Position</button>
+            `;
+
+            Object.keys(this.customPresets).forEach(key => {
+                const name = this.customPresets[key].name || key;
+                html += `
+                    <div class="custom-preset-chip" style="display: inline-flex; align-items: center; background: rgba(30, 41, 59, 0.9); border: 1px solid #3b82f6; border-radius: 6px; overflow: hidden; margin-right: 6px; margin-bottom: 6px;">
+                        <button class="preset-button custom-fk-preset-btn" data-preset-key="${key}" style="border: none; border-radius: 0; background: transparent; padding: 6px 10px; font-weight: 500;">
+                            📍 ${name}
+                        </button>
+                        <button class="delete-fk-preset-btn" data-preset-key="${key}" title="Delete location preset" style="background: transparent; color: #ef4444; border: none; border-left: 1px solid #334155; padding: 6px 8px; cursor: pointer; font-size: 0.85rem; font-weight: bold; line-height: 1; transition: background 0.15s ease;">
+                            ✕
+                        </button>
+                    </div>
+                `;
+            });
+
+            return html;
+        }
+
+        updatePresetButtonsUI() {
+            const container = this.container.querySelector('#fkPresetButtonsContainer');
+            if (container) {
+                container.innerHTML = this.renderPresetButtonsHTML();
+                this.bindPresetButtons();
+            }
+        }
+
+        bindPresetButtons() {
+            const homeBtn = this.container.querySelector('#fkHomeBtn');
+            const restBtn = this.container.querySelector('#fkRestBtn');
+
+            if (homeBtn) homeBtn.onclick = () => this.applyFKPreset('home');
+            if (restBtn) restBtn.onclick = () => this.applyFKPreset('rest');
+
+            const customBtns = this.container.querySelectorAll('.custom-fk-preset-btn');
+            customBtns.forEach(btn => {
+                btn.onclick = () => {
+                    const key = btn.getAttribute('data-preset-key');
+                    this.applyCustomFKPreset(key);
+                };
+            });
+
+            const deleteBtns = this.container.querySelectorAll('.delete-fk-preset-btn');
+            deleteBtns.forEach(btn => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const key = btn.getAttribute('data-preset-key');
+                    this.deleteCustomPreset(key);
+                };
+            });
+        }
+
+        applyCustomFKPreset(key) {
+            const preset = this.customPresets[key];
+            if (!preset || !preset.values) return;
+
+            this.jointNames.forEach(joint => {
+                if (preset.values[joint] !== undefined) {
+                    const value = parseFloat(preset.values[joint]) || 0;
+                    this.jointValues[joint] = value;
+
+                    if (this.fkSliders[joint]) {
+                        this.fkSliders[joint].value = value;
+                        const factor = this.jointMultipliers[joint] !== undefined ? this.jointMultipliers[joint] : 1.0;
+                        const scaledVal = value * factor;
+                        if (this.fkDisplaySpans[joint]) {
+                            this.fkDisplaySpans[joint].innerText = `${value.toFixed(1)} (x${factor.toFixed(2)} = ${scaledVal.toFixed(1)})`;
+                        }
+                        this.fkSliders[joint].dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }
+            });
+            this.sendUpdate();
+        }
+
+        deleteCustomPreset(key) {
+            if (this.customPresets[key]) {
+                delete this.customPresets[key];
+                this.saveCustomPresets();
+                this.updatePresetButtonsUI();
+            }
         }
 
         // ─── WebSocket ──────────────────────────────────────────────────────
@@ -139,7 +250,8 @@
                 const armData = [
                     getVal('j0'), getVal('j1'), 
                     getVal('j2'), getVal('j3'),
-                    getVal('diff_m1'), getVal('diff_m2')
+                    getVal('diff_m1') + getVal('diff_m2'),
+                    getVal('diff_m1') + getVal('diff_m2')
                 ];
                 const gripperData = getVal('gripper_servo');
 
@@ -240,9 +352,58 @@
                         }).join('')}
                     </div>
 
-                    <div class="preset-buttons">
-                        <button class="preset-button" id="fkHomeBtn">Home Position</button>
-                        <button class="preset-button" id="fkRestBtn">Rest Position</button>
+                    <div class="preset-section" style="margin-top: 16px; margin-bottom: 16px; background: rgba(30, 41, 59, 0.4); border: 1px solid #334155; border-radius: 8px; padding: 14px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                            <label style="font-weight: 600; color: #38bdf8; font-size: 0.95rem;">Preset Joint Locations</label>
+                            <button id="fkSaveLocationBtn" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.15s ease;">
+                                ➕ Save Location
+                            </button>
+                        </div>
+                        <div class="preset-buttons" id="fkPresetButtonsContainer" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+                            ${this.renderPresetButtonsHTML()}
+                        </div>
+                    </div>
+
+                    <!-- Save Location Modal -->
+                    <div id="saveLocationModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); z-index: 99999; justify-content: center; align-items: center;">
+                        <div style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 22px; max-width: 480px; width: 90%; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6); color: #f8fafc;">
+                            <h3 style="margin-top: 0; color: #38bdf8; font-size: 1.15rem; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                                💾 Save Joint Location Preset
+                            </h3>
+                            
+                            <div style="margin-bottom: 14px;">
+                                <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #94a3b8; margin-bottom: 6px;">Preset Name</label>
+                                <input type="text" id="presetNameInput" placeholder="e.g. Pick Position, Home 2..." style="width: 100%; box-sizing: border-box; background: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 6px; padding: 8px 12px; font-size: 0.9rem;">
+                            </div>
+
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #94a3b8; margin-bottom: 6px;">Joint Values Source</label>
+                                <div style="display: flex; gap: 16px;">
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.85rem; color: #e2e8f0;">
+                                        <input type="radio" name="presetSource" value="current" checked style="accent-color: #38bdf8;"> Save Current State
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.85rem; color: #e2e8f0;">
+                                        <input type="radio" name="presetSource" value="manual" style="accent-color: #38bdf8;"> Manual Entry
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div id="manualEntrySection" style="display: none; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                                    ${this.jointNames.map(joint => `
+                                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                                            <label style="font-size: 0.8rem; font-family: monospace; color: #38bdf8;">${joint}:</label>
+                                            <input type="number" id="manual_preset_${joint}" value="0" step="0.1" style="width: 80px; background: #1e293b; color: #fff; border: 1px solid #475569; border-radius: 4px; padding: 4px 6px; font-size: 0.85rem; text-align: right;">
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                                <button id="cancelSavePresetBtn" style="background: #334155; color: #f1f5f9; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500;">Cancel</button>
+                                <button id="confirmSavePresetBtn" style="background: #2563eb; color: #fff; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">Save Location</button>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="keyboard-shortcuts-section">
@@ -420,9 +581,79 @@
                 this.sendLockOrientation();
             };
 
-            // FK presets
-            this.container.querySelector('#fkHomeBtn').onclick = () => this.applyFKPreset('home');
-            this.container.querySelector('#fkRestBtn').onclick = () => this.applyFKPreset('rest');
+            // FK Presets & Custom Presets
+            this.bindPresetButtons();
+
+            // Save Location Modal Controls
+            const modal = this.container.querySelector('#saveLocationModal');
+            const saveBtn = this.container.querySelector('#fkSaveLocationBtn');
+            const cancelBtn = this.container.querySelector('#cancelSavePresetBtn');
+            const confirmBtn = this.container.querySelector('#confirmSavePresetBtn');
+            const nameInput = this.container.querySelector('#presetNameInput');
+            const manualSection = this.container.querySelector('#manualEntrySection');
+            const sourceRadios = this.container.querySelectorAll('input[name="presetSource"]');
+
+            if (saveBtn && modal) {
+                saveBtn.onclick = () => {
+                    if (nameInput) nameInput.value = '';
+                    this.jointNames.forEach(joint => {
+                        const input = this.container.querySelector(`#manual_preset_${joint}`);
+                        if (input) input.value = (this.jointValues[joint] || 0).toFixed(1);
+                    });
+                    const currentRadio = this.container.querySelector('input[name="presetSource"][value="current"]');
+                    if (currentRadio) currentRadio.checked = true;
+                    if (manualSection) manualSection.style.display = 'none';
+                    modal.style.display = 'flex';
+                };
+            }
+
+            sourceRadios.forEach(radio => {
+                radio.onchange = () => {
+                    if (manualSection) {
+                        manualSection.style.display = radio.value === 'manual' ? 'block' : 'none';
+                    }
+                };
+            });
+
+            if (cancelBtn && modal) {
+                cancelBtn.onclick = () => {
+                    modal.style.display = 'none';
+                };
+            }
+
+            if (confirmBtn && modal) {
+                confirmBtn.onclick = () => {
+                    let name = nameInput ? nameInput.value.trim() : '';
+                    if (!name) {
+                        name = `Preset ${Object.keys(this.customPresets).length + 1}`;
+                    }
+
+                    const selectedSource = this.container.querySelector('input[name="presetSource"]:checked');
+                    const isManual = selectedSource && selectedSource.value === 'manual';
+
+                    const values = {};
+                    this.jointNames.forEach(joint => {
+                        if (isManual) {
+                            const input = this.container.querySelector(`#manual_preset_${joint}`);
+                            let val = input ? parseFloat(input.value) : 0;
+                            if (isNaN(val)) val = 0;
+                            values[joint] = val;
+                        } else {
+                            values[joint] = this.jointValues[joint] || 0;
+                        }
+                    });
+
+                    const key = 'preset_' + Date.now();
+                    this.customPresets[key] = {
+                        name: name,
+                        values: values
+                    };
+
+                    this.saveCustomPresets();
+                    this.updatePresetButtonsUI();
+                    modal.style.display = 'none';
+                };
+            }
 
             // IK presets
             this.container.querySelector('#ikHomeBtn').onclick = () => this.applyIKPreset('home');
@@ -506,7 +737,11 @@
                 
                 if (this.fkSliders[joint]) {
                     this.fkSliders[joint].value = value;
-                    this.fkDisplaySpans[joint].innerText = value.toFixed(1);
+                    const factor = this.jointMultipliers[joint] !== undefined ? this.jointMultipliers[joint] : 1.0;
+                    const scaledVal = value * factor;
+                    if (this.fkDisplaySpans[joint]) {
+                        this.fkDisplaySpans[joint].innerText = `${value.toFixed(1)} (x${factor.toFixed(2)} = ${scaledVal.toFixed(1)})`;
+                    }
                     this.fkSliders[joint].dispatchEvent(new Event('input', { bubbles: true }));
                 }
             });
