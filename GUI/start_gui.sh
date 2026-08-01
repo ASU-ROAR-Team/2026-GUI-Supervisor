@@ -66,9 +66,9 @@ else
     fi
 
     # Explicitly checkout gui_updated branch in the cloned repo
-    echo "Ensuring gui_updated branch is active..."
+    echo "Ensuring start_gui_script branch is active..."
     cd "$GUI_DIR/.."
-    git checkout gui_updated
+    git checkout start_gui_script
     cd - > /dev/null
 fi
 
