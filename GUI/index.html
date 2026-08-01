@@ -48,6 +48,20 @@
   <link rel="stylesheet" href="plugins/Drilling-Control/DrillingControlView.css">
 
   <script>
+    window.getRoarHost = function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const paramHost = urlParams.get('host');
+      if (paramHost) {
+        localStorage.setItem('roar_host', paramHost);
+        return paramHost;
+      }
+      const savedHost = localStorage.getItem('roar_host');
+      if (savedHost && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        return savedHost;
+      }
+      return window.location.hostname || 'localhost';
+    };
+
     document.addEventListener('DOMContentLoaded', function () {
       openmct.setAssetPath('/node_modules/openmct/dist/');
       openmct.install(openmct.plugins.LocalStorage());
@@ -85,7 +99,7 @@
       // Install all custom plugins
       openmct.install(window.StartComboPlugin());
       openmct.install(window.CostmapMapPlugin({
-          defaultCostmapSourceUrl: 'http://' + (window.location.hostname || 'localhost') + ':8081/images/new_yard.png',
+          defaultCostmapSourceUrl: 'http://' + window.getRoarHost() + ':8081/images/new_yard.png',
           defaultPixelOffsetX: 70,
           defaultPixelOffsetY: 246,
           defaultPixelsPerMeter: 20,

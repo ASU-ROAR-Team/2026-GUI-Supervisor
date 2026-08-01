@@ -26,7 +26,7 @@
     RoverStatusView.prototype.initWS = function () {
         if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
 
-        const wsHost = window.location.hostname || "localhost";
+        const wsHost = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
         this.ws = new WebSocket(`ws://${wsHost}:8080`);
 
         this.ws.onopen = () => {

@@ -92,7 +92,7 @@
                     const initWS = () => {
                         if (ws && ws.readyState !== WebSocket.CLOSED) return;
 
-                        const wsHost = window.location.hostname || 'localhost';
+                        const wsHost = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
                         ws = new WebSocket(`ws://${wsHost}:8080`);
 
                         ws.onopen = () => {

@@ -87,7 +87,7 @@
                             element.style.height = '100%';
                             element.style.boxSizing = 'border-box';
 
-                            const host = window.location.hostname || 'localhost';
+                            const host = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
                             let url = domainObject.cameraFeedUrl;
                             if (url && url.includes('localhost')) {
                                 url = url.replace('localhost', host);
@@ -131,7 +131,7 @@
 
                     return {
                         async show(element) {
-                            const host = window.location.hostname || 'localhost';
+                            const host = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
                             let activeCameras = [];
                             
                             try {

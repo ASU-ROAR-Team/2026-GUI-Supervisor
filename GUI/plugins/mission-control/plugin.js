@@ -11,7 +11,7 @@
     let cachedActiveCameras = null;
 
     async function fetchActiveCameras() {
-        const host = window.location.hostname || 'localhost';
+        const host = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
         try {
             const res = await fetch(`http://${host}:9090/api/cameras`);
             if (res.ok) {
@@ -31,7 +31,7 @@
         return function install(openmct) {
             console.log('ROAR Supervisor Plugin: Installing...');
 
-            const host = window.location.hostname || 'localhost';
+            const host = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
 
             // 1. Define mission control panel type
             openmct.types.addType(MISSION_CONTROL_KEY, {
