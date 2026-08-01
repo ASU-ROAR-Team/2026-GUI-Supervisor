@@ -112,11 +112,11 @@ def capture_worker(dev_path):
     print(f"Initializing Camera {dev_path} ({dev_name})...")
     
     cap = cv2.VideoCapture(dev_path, cv2.CAP_V4L2)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-    cap.set(cv2.CAP_PROP_CONVERT_RGB, 1)
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, stream_config["width"])
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, stream_config["height"])
+    cap.set(cv2.CAP_PROP_FPS, stream_config["fps_cap"])
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     if not cap.isOpened():
         print(f"❌ ERROR: Could not open {dev_path}.")
@@ -126,13 +126,13 @@ def capture_worker(dev_path):
     last_encode_time = 0.0
     
     while True:
-        ret, frame = cap.read()
-        if not ret or frame is None:
+        # Continuously drain the kernel V4L2 buffer with cap.grab() for zero buffer lag
+        if not cap.grab():
             time.sleep(0.005)
             continue
 
         if not cam_states.get(dev_path, {}).get("enabled", True):
-            time.sleep(0.1)
+            time.sleep(0.05)
             continue
 
         now = time.time()
@@ -141,6 +141,11 @@ def capture_worker(dev_path):
             continue
 
         last_encode_time = now
+
+        # Retrieve and decode frame array
+        ret, frame = cap.retrieve()
+        if not ret or frame is None:
+            continue
 
         # 1. Handle RealSense 16-bit Depth Maps (Z16 format)
         if frame.dtype == np.uint16 or frame.dtype == np.int16:
@@ -197,7 +202,7 @@ class CameraHandler(BaseHTTPRequestHandler):
                 self.send_error(404, "Camera not found")
                 return
 
-            if not cam_states[dev_path]["enabled"]:
+            if not cam_states.get(dev_path, {}).get("enabled", True):
                 self.send_error(404, "Camera Paused")
                 return
 
@@ -212,6 +217,7 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'image/jpeg')
             self.send_header('Content-Length', str(len(data)))
             self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Connection', 'close')
             self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
             self.send_header('Pragma', 'no-cache')
             self.send_header('Expires', '0')

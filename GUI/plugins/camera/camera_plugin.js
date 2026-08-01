@@ -6,29 +6,35 @@
 
     function startLowLatencyStream(imgEl, frameUrl) {
         let active = true;
-        async function loop() {
-            while (active && document.body.contains(imgEl)) {
-                const t0 = performance.now();
-                try {
-                    const response = await fetch(frameUrl + (frameUrl.includes('?') ? '&' : '?') + 't=' + Date.now());
-                    if (response.ok) {
-                        const blob = await response.blob();
-                        const newUrl = URL.createObjectURL(blob);
-                        const oldUrl = imgEl.src;
-                        imgEl.src = newUrl;
-                        if (oldUrl && oldUrl.startsWith('blob:')) {
-                            URL.revokeObjectURL(oldUrl);
-                        }
-                    }
-                } catch (e) {}
+        let pending = false;
 
-                const elapsed = performance.now() - t0;
-                const delay = Math.max(5, 33 - elapsed);
-                await new Promise(r => setTimeout(r, delay));
+        async function fetchNextFrame() {
+            if (!active || pending || !document.body.contains(imgEl)) return;
+            pending = true;
+            try {
+                const response = await fetch(frameUrl + (frameUrl.includes('?') ? '&' : '?') + 't=' + Date.now());
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const newUrl = URL.createObjectURL(blob);
+                    const oldUrl = imgEl.src;
+                    imgEl.src = newUrl;
+                    if (oldUrl && oldUrl.startsWith('blob:')) {
+                        setTimeout(() => URL.revokeObjectURL(oldUrl), 100);
+                    }
+                }
+            } catch (e) {
+            } finally {
+                pending = false;
             }
         }
-        loop();
-        return () => { active = false; };
+
+        const interval = setInterval(fetchNextFrame, 30);
+        fetchNextFrame();
+
+        return () => {
+            active = false;
+            clearInterval(interval);
+        };
     }
 
     window.CameraPlugin = function CameraPlugin() {
@@ -124,30 +130,38 @@
                     let cancelTokens = [];
 
                     return {
-                        show(element) {
+                        async show(element) {
                             const host = window.location.hostname || 'localhost';
-                            const camNums = [0, 2, 4, 6, 8, 10];
-                            const camLabels = [
-                                "Cam 0 (Main - /dev/video0)",
-                                "Cam 1 (Front - /dev/video2)",
-                                "Cam 2 (Left - /dev/video4)",
-                                "Cam 3 (Right - /dev/video6)",
-                                "Cam 4 (Rear - /dev/video8)",
-                                "Cam 5 (Arm/Tool - /dev/video10)"
-                            ];
+                            let activeCameras = [];
+                            
+                            try {
+                                const res = await fetch(`http://${host}:9090/api/cameras`);
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    activeCameras = data.cameras || [];
+                                }
+                            } catch (e) {
+                                console.warn('Could not fetch active cameras list:', e);
+                            }
+
+                            if (activeCameras.length === 0) {
+                                activeCameras = [
+                                    { dev: '/dev/video0', cam_num: '0', name: 'Camera #1 (/dev/video0)' }
+                                ];
+                            }
 
                             element.innerHTML = `
                                 <div class="multi-cam-container">
                                     <div class="multi-cam-header">
                                         <h3>📹 Multi-Camera Real-Time Monitor</h3>
-                                        <span class="multi-cam-badge">${camNums.length} Feeds Active</span>
+                                        <span class="multi-cam-badge">${activeCameras.length} Camera(s) Active</span>
                                     </div>
                                     <div class="multi-cam-grid">
-                                        ${camNums.map((num, i) => `
+                                        ${activeCameras.map((cam, i) => `
                                             <div class="cam-card">
-                                                <div class="cam-card-title">${camLabels[i]}</div>
+                                                <div class="cam-card-title">📷 #${i + 1}: ${cam.name} (${cam.dev})</div>
                                                 <div class="cam-frame">
-                                                    <img id="openmct-cam-${num}" alt="${camLabels[i]}">
+                                                    <img id="openmct-cam-${cam.cam_num}" alt="${cam.name}">
                                                 </div>
                                             </div>
                                         `).join('')}
@@ -207,11 +221,11 @@
                                 </style>
                             `;
 
-                            // Start low-latency async fetch loops for all cameras
-                            camNums.forEach(num => {
-                                const imgEl = element.querySelector(`#openmct-cam-${num}`);
+                            // Start low-latency async fetch loops for ONLY available active cameras
+                            activeCameras.forEach(cam => {
+                                const imgEl = element.querySelector(`#openmct-cam-${cam.cam_num}`);
                                 if (imgEl) {
-                                    const frameUrl = `http://${host}:9090/api/frame/${num}`;
+                                    const frameUrl = `http://${host}:9090/api/frame/${cam.cam_num}`;
                                     const cancel = startLowLatencyStream(imgEl, frameUrl);
                                     cancelTokens.push(cancel);
                                 }
