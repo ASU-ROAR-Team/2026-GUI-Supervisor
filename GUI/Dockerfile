@@ -1,4 +1,4 @@
-FROM ros:humble-ros-core
+FROM ros:humble-ros-base
 
 WORKDIR /app
 
@@ -8,14 +8,15 @@ RUN apt-get update && apt-get install -y \
     curl \
     python3-opencv \
     ros-humble-rmw-cyclonedds-cpp \
- && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Python packages
 RUN pip3 install websockets psutil
 
-# Install Node.js 18
+# Install Node.js 18 (includes npm)
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs && \
+    apt-get update && apt-get install -y nodejs && \
+    node -v && npm -v && \
     rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
