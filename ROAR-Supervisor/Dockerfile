@@ -4,8 +4,7 @@ SHELL ["/bin/bash", "-c"]
 # 1. Install build dependencies
 RUN apt-get update && apt-get install -y \
     python3-colcon-common-extensions \
-    git \
-    python3-pip \
+    ros-humble-rmw-cyclonedds-cpp \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Clone micro-ROS setup tool
