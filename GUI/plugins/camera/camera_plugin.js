@@ -209,16 +209,31 @@
 
                 const images = await Promise.all(camNums.map(async (num, idx) => {
                     try {
-                        const response = await fetch(`http://${host}:9090/api/frame/${num}?t=${Date.now()}`);
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 3000);
+                        const response = await fetch(`http://${host}:9090/api/frame/${num}?t=${Date.now()}`, { signal: controller.signal });
+                        clearTimeout(timeoutId);
                         if (!response.ok) return null;
                         const blob = await response.blob();
-                        const img = new Image();
-                        const url = URL.createObjectURL(blob);
-                        await new Promise((res, rej) => {
-                            img.onload = res;
-                            img.onerror = rej;
+
+                        return await new Promise((resolve) => {
+                            const img = new Image();
+                            const url = URL.createObjectURL(blob);
+                            const imgTimer = setTimeout(() => {
+                                URL.revokeObjectURL(url);
+                                resolve(null);
+                            }, 3000);
+                            img.onload = () => {
+                                clearTimeout(imgTimer);
+                                resolve({ num, label: camLabels[idx], img, url });
+                            };
+                            img.onerror = () => {
+                                clearTimeout(imgTimer);
+                                URL.revokeObjectURL(url);
+                                resolve(null);
+                            };
+                            img.src = url;
                         });
-                        return { num, label: camLabels[idx], img, url };
                     } catch (e) {
                         return null;
                     }

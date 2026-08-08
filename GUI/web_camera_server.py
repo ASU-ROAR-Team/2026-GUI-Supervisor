@@ -713,16 +713,31 @@ class CameraHandler(BaseHTTPRequestHandler):
 
             const images = await Promise.all(camNums.map(async (camNum) => {{
                 try {{
-                    const response = await fetch('/api/frame/' + camNum + '?t=' + Date.now());
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3000);
+                    const response = await fetch('/api/frame/' + camNum + '?t=' + Date.now(), {{ signal: controller.signal }});
+                    clearTimeout(timeoutId);
                     if (!response.ok) return null;
                     const blob = await response.blob();
-                    const img = new Image();
-                    const url = URL.createObjectURL(blob);
-                    await new Promise((res, rej) => {{
-                        img.onload = res;
-                        img.onerror = rej;
+                    
+                    return await new Promise((resolve) => {{
+                        const img = new Image();
+                        const url = URL.createObjectURL(blob);
+                        const imgTimer = setTimeout(() => {{
+                            URL.revokeObjectURL(url);
+                            resolve(null);
+                        }}, 3000);
+                        img.onload = () => {{
+                            clearTimeout(imgTimer);
+                            resolve({{ camNum, img, url }});
+                        }};
+                        img.onerror = () => {{
+                            clearTimeout(imgTimer);
+                            URL.revokeObjectURL(url);
+                            resolve(null);
+                        }};
+                        img.src = url;
                     }});
-                    return {{ camNum, img, url }};
                 }} catch (e) {{
                     return null;
                 }}
