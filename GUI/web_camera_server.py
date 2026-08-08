@@ -64,29 +64,24 @@ def test_camera_node(dev):
     cap.release()
     return ret, frame
 
-def detect_camera_devices(force_include_video0=False):
-    """Smart Camera Discovery: Uses external cameras if present; falls back to /dev/video0 if no external cameras are connected."""
-    print("🔍 Scanning for available camera device nodes...")
+def detect_camera_devices(include_video0=False):
+    """Scan /dev/video* nodes for external robotic cameras, strictly excluding base station laptop webcams."""
+    print("🔍 Scanning for available camera device nodes (Excluding base station webcam)...")
     dev_paths = sorted(
         glob.glob('/dev/video*'),
         key=lambda x: int(x.replace('/dev/video', '')) if x.replace('/dev/video', '').isdigit() else 999
     )
     
-    external_candidates = []
-    internal_candidates = []
-    
-    for dev in dev_paths:
-        dev_name = get_device_name(dev)
-        if is_internal_webcam(dev, dev_name):
-            internal_candidates.append((dev, dev_name))
-        else:
-            external_candidates.append((dev, dev_name))
-
     available = []
     names = {}
     
-    # 1. First test external robotic cameras
-    for dev, dev_name in external_candidates:
+    for dev in dev_paths:
+        dev_name = get_device_name(dev)
+
+        if not include_video0 and is_internal_webcam(dev, dev_name):
+            print(f"  🚫 Skipping base station webcam: {dev} ({dev_name})")
+            continue
+
         ret, frame = test_camera_node(dev)
         if ret:
             print(f"  ✅ Detected active robotic camera: {dev} -> {dev_name}")
@@ -95,22 +90,10 @@ def detect_camera_devices(force_include_video0=False):
         else:
             print(f"  ⚠️ Skipping {dev} ({dev_name}) - cannot capture frames")
 
-    # 2. If no external cameras found OR force_include_video0 is True, test internal laptop webcam as fallback
-    if not available or force_include_video0:
-        if not available:
-            print("  ℹ️ No external USB/ZED/RealSense cameras detected. Enabling laptop webcam fallback...")
-        for dev, dev_name in internal_candidates:
-            ret, frame = test_camera_node(dev)
-            if ret:
-                print(f"  ✅ Detected active fallback camera: {dev} -> {dev_name}")
-                available.append(dev)
-                names[dev] = dev_name
-                break # Just pick the first active internal webcam node
-
     if not available:
-        print("⚠️ Warning: No active video capture nodes found on system.")
+        print("⚠️ Warning: No active robotic video capture nodes found on system.")
     else:
-        print(f"✅ Active Camera Streams ({len(available)} total):")
+        print(f"✅ Found {len(available)} active camera(s):")
         for dev in available:
             print(f"   • {dev}: {names[dev]}")
     
@@ -244,12 +227,8 @@ class CameraHandler(BaseHTTPRequestHandler):
             dev_path = f"/dev/video{cam_num}"
 
             if dev_path not in latest_jpeg:
-                # If only video0 exists and request is for video2, map fallback
-                if len(DEV_NODES) == 1 and DEV_NODES[0] == '/dev/video0':
-                    dev_path = '/dev/video0'
-                else:
-                    self.send_error(404, "Camera not found")
-                    return
+                self.send_error(404, "Camera not found")
+                return
 
             if not cam_states.get(dev_path, {}).get("enabled", True):
                 self.send_error(404, "Camera Paused")
@@ -280,11 +259,8 @@ class CameraHandler(BaseHTTPRequestHandler):
             dev_path = f"/dev/video{cam_num}"
 
             if dev_path not in latest_jpeg:
-                if len(DEV_NODES) == 1 and DEV_NODES[0] == '/dev/video0':
-                    dev_path = '/dev/video0'
-                else:
-                    self.send_error(404, "Camera not found")
-                    return
+                self.send_error(404, "Camera not found")
+                return
 
             self.send_response(200)
             self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=frame')
