@@ -31,5 +31,4 @@ echo "----------------------------------------------"
 docker run -it --rm \
   --name $CONTAINER_NAME \
   --net=host \
-  --device=/dev/ttyUSB0 \
   $IMAGE_NAME

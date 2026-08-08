@@ -13,6 +13,7 @@ try:
     from roar_msgs.msg import ArucoDetectionArray
     ARUCO_AVAILABLE = True
 except ImportError:
+    ARUCO_AVAILABLE = False
     print("WARNING: roar_msgs.msg.ArucoDetectionArray not found. ArUco functionality will be disabled.")
 from visualization_msgs.msg import Marker
 import json
@@ -22,7 +23,7 @@ import base64
 import websockets
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 
-PORT = 9091
+PORT = 8080
 
 
 class WSROS2Bridge(Node):
@@ -62,7 +63,7 @@ class WSROS2Bridge(Node):
         self.create_subscription(CompressedImage, '/logitech_1/image_raw/compressed', self.logitech_camera_cb, 10)
         self.create_subscription(CompressedImage, '/zed2i/zed_node/depth/depth_registered/color_mapped_image/compressed_for_web', self.zed_camera_cb, 10)
 
-        self.create_subscription(Odometry, '/filtered_state', self.robot_pose_cb, 10)
+        self.create_subscription(Odometry, '/odom', self.robot_pose_cb, 10)
         self.create_subscription(Path, '/Path', self.global_path_cb, 10)
         self.create_subscription(Path, '/traversed_path', self.traversed_path_cb, 10)
         self.create_subscription(Marker, '/obstacles', self.obstacle_cb, 10)

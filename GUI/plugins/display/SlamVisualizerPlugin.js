@@ -54,7 +54,7 @@
             this.timeHist = [];
             this.covHist = [];
             this.arucoEvents = [];
-            
+
             this.fx = 0.0; this.fy = 0.0; this.fz = 0.0;
             this.roll = 0.0; this.pitch = 0.0; this.yaw = 0.0;
             this.gx = 0.0; this.gy = 0.0;
@@ -65,7 +65,7 @@
             this.t0 = null;
             this.historyLen = 1500;
 
-            // Obstacles and Waypoints default overlays from supervisor standard config
+            // Static waypoint overlays matching default scenario
             this.waypoints = [
                 { id: 0, x: 15.1159, y: -3.0854 },
                 { id: 1, x: 6.8073, y: 10.3746 },
@@ -178,7 +178,7 @@
             if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
 
             const wsHost = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
-            this.ws = new WebSocket(`ws://${wsHost}:8080`);
+            this.ws = new WebSocket(`ws://${window.location.hostname || 'localhost'}:8080`);
 
             this.ws.onopen = () => {
                 console.log('[SlamVisualizerPlugin] Connected to WebSocket bridge');
@@ -234,7 +234,7 @@
             this.fy = p.y;
             this.fz = p.z;
 
-            // Quat to RPY
+            // Quaternion to Roll, Pitch, Yaw
             const x = q.x, y = q.y, z = q.z, w = q.w;
             this.roll = Math.atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y)) * 180 / Math.PI;
             this.pitch = Math.asin(Math.max(-1.0, Math.min(1.0, 2 * (w * y - z * x)))) * 180 / Math.PI;
@@ -313,7 +313,6 @@
             this.updateScoreboard();
         }
 
-        // Draw 2D Path Panel
         draw2DPath() {
             const canvas = document.getElementById('canvas-path');
             if (!canvas) return;
@@ -324,7 +323,6 @@
             ctx.fillStyle = '#1a1a2e';
             ctx.fillRect(0, 0, w, h);
 
-            // Compute bounds from waypoints and paths to zoom appropriately
             let minX = -10, maxX = 30, minY = -10, maxY = 20;
             const allPoints = [...this.waypoints, ...this.filterPath, ...this.gtPath];
             if (allPoints.length > 0) {
@@ -342,11 +340,10 @@
 
             const toPixel = (x, y) => {
                 const px = w / 2 + (x - (minX + maxX) / 2) * scale;
-                const py = h / 2 - (y - (minY + maxY) / 2) * scale; // invert Y for canvas standard coordinates
+                const py = h / 2 - (y - (minY + maxY) / 2) * scale;
                 return { x: px, y: py };
             };
 
-            // Grid lines
             ctx.strokeStyle = '#2e2e4f';
             ctx.lineWidth = 1;
             for (let x = Math.floor(minX); x <= Math.ceil(maxX); x += 5) {
@@ -366,14 +363,12 @@
                 ctx.stroke();
             }
 
-            // Draw Start Point
             const startP = toPixel(this.startXY.x, this.startXY.y);
             ctx.fillStyle = '#ffffff';
             ctx.beginPath();
             ctx.arc(startP.x, startP.y, 6, 0, 2 * Math.PI);
             ctx.fill();
 
-            // Draw Waypoints
             this.waypoints.forEach(wp => {
                 const wpP = toPixel(wp.x, wp.y);
                 ctx.fillStyle = '#f1c40f';
@@ -385,7 +380,6 @@
                 ctx.fillText(`WP${wp.id}`, wpP.x + 8, wpP.y - 4);
             });
 
-            // Filter Path (Blue)
             if (this.filterPath.length > 1) {
                 ctx.strokeStyle = '#3498db';
                 ctx.lineWidth = 2;
@@ -399,7 +393,6 @@
                 ctx.stroke();
             }
 
-            // Ground Truth Path (Green dashed)
             if (this.gtPath.length > 1) {
                 ctx.strokeStyle = '#2ecc71';
                 ctx.lineWidth = 1.5;
@@ -415,7 +408,6 @@
                 ctx.setLineDash([]);
             }
 
-            // Current positions
             if (this.filterPath.length > 0) {
                 const currF = toPixel(this.fx, this.fy);
                 ctx.fillStyle = '#3498db';
@@ -429,13 +421,11 @@
                 ctx.fillRect(currG.x - 5, currG.y - 5, 10, 10);
             }
 
-            // Covariance ellipse
             if (this.cov && this.cov.length >= 36) {
                 const xx = this.cov[0];
                 const xy = this.cov[1];
                 const yy = this.cov[7];
-                
-                // Eigenvalues of 2D position covariance
+
                 const trace = xx + yy;
                 const det = xx * yy - xy * xy;
                 const diff = xx - yy;
@@ -451,7 +441,7 @@
                 ctx.save();
                 const currF = toPixel(this.fx, this.fy);
                 ctx.translate(currF.x, currF.y);
-                ctx.rotate(-angle); // invert rotation for canvas standard coordinates
+                ctx.rotate(-angle);
                 ctx.strokeStyle = '#e74c3c';
                 ctx.lineWidth = 1.5;
                 ctx.setLineDash([2, 2]);
@@ -462,7 +452,6 @@
             }
         }
 
-        // Draw Orientation Panel (attitude dashboard style)
         drawOrientation() {
             const canvas = document.getElementById('canvas-3d');
             if (!canvas) return;
@@ -504,7 +493,6 @@
             drawDial(3 * w / 4, h / 2, size * 0.7, y, 'Yaw', '#e056fd');
         }
 
-        // Draw Error Plot Panel
         drawErrorPlot() {
             const canvas = document.getElementById('canvas-error');
             if (!canvas) return;
@@ -527,7 +515,6 @@
                 return { x: px, y: py };
             };
 
-            // Threshold lines
             const drawThreshold = (val, label, color) => {
                 const p = toPixel(tMin, val);
                 ctx.strokeStyle = color;
@@ -547,7 +534,6 @@
             drawThreshold(0.15, '15 cm', '#f39c12');
             drawThreshold(0.30, '30 cm target', '#e74c3c');
 
-            // Draw line chart
             ctx.lineWidth = 2;
             for (let i = 1; i < this.errorHist.length; i++) {
                 const p1 = toPixel(this.timeHist[i - 1], this.errorHist[i - 1]);
@@ -561,7 +547,6 @@
             }
         }
 
-        // Draw ArUco Timeline Panel
         drawArucoTimeline() {
             const canvas = document.getElementById('canvas-aruco');
             if (!canvas) return;
@@ -572,11 +557,9 @@
             ctx.fillStyle = '#1a1a2e';
             ctx.fillRect(0, 0, w, h);
 
-            // Draw timeline of events
             const tMax = this.timeHist.length > 0 ? this.timeHist[this.timeHist.length - 1] : 30.0;
             const tMin = Math.max(0.0, tMax - 30.0);
 
-            // Mock IDs if empty, but otherwise show known markers (e.g. 0 to 10)
             const ids = [0, 1, 2, 3, 4, 5, 6, 7];
             const rowHeight = (h - 40) / ids.length;
 
@@ -593,7 +576,6 @@
                 ctx.fillText(`id ${id}`, 10, y + 4);
             });
 
-            // Scatter events
             this.arucoEvents.forEach(evt => {
                 if (evt.t >= tMin && evt.t <= tMax) {
                     const idx = ids.indexOf(evt.id);
@@ -609,7 +591,6 @@
             });
         }
 
-        // Draw FIS Bars Panel
         drawFisBars() {
             const canvas = document.getElementById('canvas-fis');
             if (!canvas) return;
@@ -645,7 +626,6 @@
             drawBar(2 * h / 3, kV_norm, 'k_V (observation)', kV, '#e056fd');
         }
 
-        // Draw Occupancy Grid Panel
         drawOccupancyGrid() {
             const canvas = document.getElementById('canvas-map');
             if (!canvas) return;
@@ -677,7 +657,6 @@
             const startX = (w - gridW * scale) / 2;
             const startY = (h - gridH * scale) / 2;
 
-            // Draw grid cells (simple pixel rendering)
             const imgData = ctx.createImageData(w, h);
             for (let y = 0; y < h; y++) {
                 for (let x = 0; x < w; x++) {
@@ -689,7 +668,6 @@
                 }
             }
 
-            // Render active cells
             for (let gy = 0; gy < gridH; gy++) {
                 for (let gx = 0; gx < gridW; gx++) {
                     const val = data[gy][gx];
@@ -698,7 +676,7 @@
                     const screenX = Math.floor(startX + gx * scale);
                     const screenY = Math.floor(startY + (gridH - 1 - gy) * scale);
 
-                    const color = val > 50 ? 0 : 255; // obstacles are black, free space white
+                    const color = val > 50 ? 0 : 255;
                     for (let dy = 0; dy < Math.ceil(scale); dy++) {
                         for (let dx = 0; dx < Math.ceil(scale); dx++) {
                             const px = screenX + dx;
@@ -716,7 +694,6 @@
             ctx.putImageData(imgData, 0, 0);
         }
 
-        // Update Text Readout
         updateTextReadout() {
             const el = document.getElementById('readout-text');
             if (!el) return;
@@ -747,7 +724,6 @@
             el.innerHTML = lines.join('\n');
         }
 
-        // Update Scoreboard
         updateScoreboard() {
             const el = document.getElementById('scoreboard-text');
             if (!el) return;
