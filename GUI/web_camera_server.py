@@ -629,7 +629,7 @@ def main():
     free_video_devices()
 
     global DEV_NODES, DEV_NAMES, latest_jpeg, frame_locks, cam_states
-    DEV_NODES, DEV_NAMES = detect_camera_devices(force_include_video0=args.include_video0)
+    DEV_NODES, DEV_NAMES = detect_camera_devices(include_video0=args.include_video0)
 
     latest_jpeg = {dev: None for dev in DEV_NODES}
     frame_locks = {dev: threading.Lock() for dev in DEV_NODES}
