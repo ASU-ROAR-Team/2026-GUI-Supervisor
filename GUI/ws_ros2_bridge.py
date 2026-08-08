@@ -7,7 +7,9 @@ from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import String, Float64MultiArray, Float32MultiArray, Int32, Float32, Int32MultiArray
 from sensor_msgs.msg import JointState, CompressedImage
 from geometry_msgs.msg import Twist
-from nav_msgs.msg import Odometry, Path
+from nav_msgs.msg import Odometry, Path, OccupancyGrid
+from geometry_msgs.msg import Twist, PoseWithCovarianceStamped
+from roar_msgs.msg import ArucoDetectionArray
 from visualization_msgs.msg import Marker
 import json
 import asyncio
@@ -60,6 +62,11 @@ class WSROS2Bridge(Node):
         self.create_subscription(Path, '/Path', self.global_path_cb, 10)
         self.create_subscription(Path, '/traversed_path', self.traversed_path_cb, 10)
         self.create_subscription(Marker, '/obstacles', self.obstacle_cb, 10)
+
+        self.create_subscription(PoseWithCovarianceStamped, '/ground_truth/pose', self.ground_truth_pose_cb, 10)
+        self.create_subscription(ArucoDetectionArray, '/aruco/detections', self.aruco_detections_cb, 10)
+        self.create_subscription(Float64MultiArray, '/roar/ieskf_diagnostics', self.ieskf_diagnostics_cb, 10)
+        self.create_subscription(OccupancyGrid, '/active_map/occupancy', self.active_map_occupancy_cb, 1)
 
         # ---------------- Internal ----------------
         self.ws_clients = set()
@@ -277,6 +284,62 @@ class WSROS2Bridge(Node):
         if len(msg.data) >= 2:
             payload = {"current": msg.data[0], "encoder": msg.data[1]}
             self.broadcast(json.dumps({"type": "drilling_sensor_feedback", "data": json.dumps(payload)}))
+
+    def ground_truth_pose_cb(self, msg):
+        pos = msg.pose.pose.position
+        ori = msg.pose.pose.orientation
+        payload = {
+            "pose": {
+                "pose": {
+                    "position": {"x": pos.x, "y": pos.y, "z": pos.z},
+                    "orientation": {"x": ori.x, "y": ori.y, "z": ori.z, "w": ori.w}
+                }
+            }
+        }
+        self.broadcast(json.dumps({"type": "ground_truth_pose", "data": json.dumps(payload)}))
+
+    def aruco_detections_cb(self, msg):
+        detections = [{"id": d.id} for d in msg.detections]
+        self.broadcast(json.dumps({"type": "aruco_detections", "data": json.dumps({"detections": detections})}))
+
+    def ieskf_diagnostics_cb(self, msg):
+        self.broadcast(json.dumps({"type": "ieskf_diagnostics", "data": json.dumps({"data": list(msg.data)})}))
+
+    def active_map_occupancy_cb(self, msg):
+        import numpy as np
+        grid = np.array(msg.data, dtype=np.int8).reshape(msg.info.height, msg.info.width)
+        occ_ys, occ_xs = np.where(grid > 50)
+        if occ_xs.size > 0:
+            margin = 30
+            x_lo = int(max(0, occ_xs.min() - margin))
+            x_hi = int(min(msg.info.width, occ_xs.max() + margin))
+            y_lo = int(max(0, occ_ys.min() - margin))
+            y_hi = int(min(msg.info.height, occ_ys.max() + margin))
+            sub = grid[y_lo:y_hi, x_lo:x_hi].tolist()
+            origin_x = msg.info.origin.position.x + x_lo * msg.info.resolution
+            origin_y = msg.info.origin.position.y + y_lo * msg.info.resolution
+            width = x_hi - x_lo
+            height = y_hi - y_lo
+        else:
+            sub = grid.tolist()
+            origin_x = msg.info.origin.position.x
+            origin_y = msg.info.origin.position.y
+            width = msg.info.width
+            height = msg.info.height
+
+        payload = {
+            "data": sub,
+            "info": {
+                "width": width,
+                "height": height,
+                "resolution": msg.info.resolution,
+                "origin": {
+                    "position": {"x": origin_x, "y": origin_y}
+                }
+            }
+        }
+        self.broadcast(json.dumps({"type": "active_map_occupancy", "data": json.dumps(payload)}))
+
 
 
 def main(args=None):
