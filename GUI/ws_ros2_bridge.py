@@ -165,6 +165,13 @@ class WSROS2Bridge(Node):
                     arm_msg = Float32MultiArray()
                     arm_msg.data = [float(x) for x in arm_data]
                     self.fk_arm_pub.publish(arm_msg)
+
+                    joint_msg = JointState()
+                    joint_msg.name = ['j0', 'j1', 'j2', 'j3', 'diff_m1', 'diff_m2', 'gripper_servo']
+                    joint_msg.position = [float(x) for x in arm_data] + [float(gripper_data)]
+                    joint_msg.effort = []
+                    self.joint_pub.publish(joint_msg)
+
                 gripper_msg = Float32()
                 gripper_msg.data = float(gripper_data)
                 self.fk_gripper_pub.publish(gripper_msg)
