@@ -7,6 +7,7 @@ services:
     container_name: gui_container
     volumes:
       - ./GUI:/app
+      - /app/node_modules
       - /dev:/dev
     environment:
       - ROS_LOCALHOST_ONLY=${ROS_LOCALHOST_ONLY:-1}
