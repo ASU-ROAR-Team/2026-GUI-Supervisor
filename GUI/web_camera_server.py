@@ -107,11 +107,11 @@ frame_locks = {}
 
 # Global & Per-Camera configurations
 stream_config = {
-    "width": 640,
-    "height": 480,
-    "quality": 60,
-    "fps_cap": 30,
-    "global_color": "rgb", # Default to RGB for better view on Dedicated Camera Dashboard
+    "width": int(os.environ.get("CAMERA_WIDTH", 640)),
+    "height": int(os.environ.get("CAMERA_HEIGHT", 480)),
+    "quality": int(os.environ.get("CAMERA_QUALITY", 50)),
+    "fps_cap": int(os.environ.get("CAMERA_FPS", 30)),
+    "global_color": os.environ.get("CAMERA_MODE", "gray").lower(), # Default to grayscale from the get-go
     "zed_mode": "left",
     "brightness": 50,
     "contrast": 50,
@@ -617,8 +617,9 @@ class CameraHandler(BaseHTTPRequestHandler):
         self.send_error(404)
 
 def main():
+    default_mode = os.environ.get("CAMERA_MODE", "gray").lower()
     parser = argparse.ArgumentParser(description="High-Performance Multi-Camera Web Server & Dedicated Camera Dashboard")
-    parser.add_argument("--mode", choices=["gray", "rgb"], default="rgb", help="Color mode: 'rgb' or 'gray'")
+    parser.add_argument("--mode", choices=["gray", "rgb"], default=default_mode, help="Color mode: 'gray' or 'rgb' (default: gray)")
     parser.add_argument("--port", type=int, default=9090, help="Web server port (default: 9090)")
     parser.add_argument("--include-video0", action="store_true", help="Force include base station webcam")
     

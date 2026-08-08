@@ -14,6 +14,8 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
       - PYTHONUNBUFFERED=1
+      - CAMERA_MODE=${CAMERA_MODE:-gray}
+      - CAMERA_QUALITY=${CAMERA_QUALITY:-50}
     command: /bin/bash -c "source /opt/ros/humble/setup.bash && python3 ws_ros2_bridge.py & python3 web_camera_server.py & node server.js"
 
   supervisor_container:
