@@ -9,7 +9,11 @@ from sensor_msgs.msg import JointState, CompressedImage
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry, Path, OccupancyGrid
 from geometry_msgs.msg import Twist, PoseWithCovarianceStamped
-from roar_msgs.msg import ArucoDetectionArray
+try:
+    from roar_msgs.msg import ArucoDetectionArray
+    ARUCO_AVAILABLE = True
+except ImportError:
+    ARUCO_AVAILABLE = False
 from visualization_msgs.msg import Marker
 import json
 import asyncio
@@ -64,7 +68,8 @@ class WSROS2Bridge(Node):
         self.create_subscription(Marker, '/obstacles', self.obstacle_cb, 10)
 
         self.create_subscription(PoseWithCovarianceStamped, '/ground_truth/pose', self.ground_truth_pose_cb, 10)
-        self.create_subscription(ArucoDetectionArray, '/aruco/detections', self.aruco_detections_cb, 10)
+        if ARUCO_AVAILABLE:
+            self.create_subscription(ArucoDetectionArray, '/aruco/detections', self.aruco_detections_cb, 10)
         self.create_subscription(Float64MultiArray, '/roar/ieskf_diagnostics', self.ieskf_diagnostics_cb, 10)
         self.create_subscription(OccupancyGrid, '/active_map/occupancy', self.active_map_occupancy_cb, 1)
 

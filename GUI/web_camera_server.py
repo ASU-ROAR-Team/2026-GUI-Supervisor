@@ -41,7 +41,8 @@ def is_internal_webcam(dev_path, dev_name):
         return True
     
     name_upper = dev_name.upper()
-    internal_keywords = ["INTEGRATED", "INTERNAL", "LAPTOP", "WEBCAM", "HP WIDE VISION", "FACETIME", "BUILT-IN"]
+    # Exclude specific internal laptop camera model signatures; keep USB webcams (C615, GENERAL WEBCAM, etc.)
+    internal_keywords = ["INTEGRATED", "INTERNAL", "LAPTOP", "HP WIDE VISION", "FACETIME", "BUILT-IN"]
     for kw in internal_keywords:
         if kw in name_upper and "ROBOT" not in name_upper and "ZED" not in name_upper and "REALSENSE" not in name_upper:
             return True
