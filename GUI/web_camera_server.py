@@ -460,6 +460,19 @@ class CameraHandler(BaseHTTPRequestHandler):
                 <span class="badge">{len(DEV_NODES)} Stream(s) Active</span>
             </div>
         </div>
+        <div class="preset-bar" style="background: #0f172a; padding: 12px 16px; border-radius: 8px; border: 1px solid #334155; margin-top: 15px;">
+            <span><strong>⚙️ Pre-Start Camera Data Stream Configuration:</strong></span>
+            <div style="display: flex; gap: 15px; align-items: center; margin-top: 8px; flex-wrap: wrap;">
+                <label style="font-size: 0.85rem; font-weight: 600;">Data Mode:
+                    <select id="preFlightColor" style="margin-left: 5px; background: #1e293b; color: #38bdf8; font-weight: bold;">
+                        <option value="gray" {"selected" if stream_config["global_color"] == "gray" else ""}>🏁 Grayscale (Pre-Transmission Data Saving)</option>
+                        <option value="rgb" {"selected" if stream_config["global_color"] == "rgb" else ""}>🎨 RGB (Full Color)</option>
+                    </select>
+                </label>
+                <button class="btn-preset" style="background: #10b981; border-color: #059669; font-weight: bold; padding: 6px 16px;" onclick="applyPreFlightConfig(true)">▶️ Start All Streams with Selected Mode</button>
+                <button class="btn-preset" style="background: #ef4444; border-color: #dc2626; font-weight: bold; padding: 6px 16px;" onclick="applyPreFlightConfig(false)">⏸ Pause All Streams</button>
+            </div>
+        </div>
         <div class="preset-bar">
             <span><strong>⚡ Quick Lighting Presets:</strong></span>
             <button class="btn-preset" onclick="applyPreset('standard')">🏠 Standard</button>
@@ -494,8 +507,8 @@ class CameraHandler(BaseHTTPRequestHandler):
             <div class="control-group">
                 <label for="globalColor">Color Mode:</label>
                 <select id="globalColor" onchange="updateGlobalConfig()">
-                    <option value="rgb" {"selected" if stream_config["global_color"] == "rgb" else ""}>RGB Full Color</option>
                     <option value="gray" {"selected" if stream_config["global_color"] == "gray" else ""}>Grayscale (B&W)</option>
+                    <option value="rgb" {"selected" if stream_config["global_color"] == "rgb" else ""}>RGB Full Color</option>
                 </select>
             </div>
             <div class="control-group">
@@ -663,7 +676,35 @@ class CameraHandler(BaseHTTPRequestHandler):
             document.getElementById('brightnessVal').textContent = brightness;
             document.getElementById('contrastVal').textContent = contrast;
 
-            fetch(`/api/control?res=${{res}}&quality=${{quality}}&brightness=${{brightness}}&contrast=${{contrast}}&global_color=${{globalColor}}`);
+        function applyPreFlightConfig(enableStreams) {{
+            const selectedColor = document.getElementById('preFlightColor').value;
+            document.getElementById('globalColor').value = selectedColor;
+            
+            // First update global color mode on server before streaming
+            fetch(`/api/control?global_color=${{selectedColor}}`)
+                .then(() => {{
+                    camNums.forEach(num => {{
+                        const devPath = `/dev/video${{num}}`;
+                        camState[num].color = selectedColor;
+                        camState[num].enabled = enableStreams;
+                        
+                        const colorBtn = document.getElementById('color-btn-' + num);
+                        if (colorBtn) colorBtn.textContent = (selectedColor === 'rgb') ? '🎨 RGB' : '🏁 GRAY';
+                        
+                        const streamBtn = document.getElementById('stream-btn-' + num);
+                        if (streamBtn) {{
+                            streamBtn.textContent = enableStreams ? '🟢 ON' : '🔴 OFF';
+                            streamBtn.className = enableStreams ? 'btn-toggle btn-on' : 'btn-toggle btn-off';
+                        }}
+                        
+                        const pausedOverlay = document.getElementById('paused-' + num);
+                        if (pausedOverlay) pausedOverlay.style.display = enableStreams ? 'none' : 'flex';
+
+                        fetch(`/api/control?cam=${{num}}&color=${{selectedColor}}&enabled=${{enableStreams ? 1 : 0}}`);
+                    }});
+                    const actionStr = enableStreams ? 'started' : 'paused';
+                    showToast(`✅ Streams ${{actionStr}} in ${{selectedColor.toUpperCase()}} mode!`);
+                }});
         }}
 
         async function saveToDiskFolder(camNum) {{
