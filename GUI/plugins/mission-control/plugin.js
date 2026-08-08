@@ -11,19 +11,30 @@
     let cachedActiveCameras = null;
 
     async function fetchActiveCameras() {
-        const host = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
-        try {
-            const res = await fetch(`http://${host}:9090/api/cameras`);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.cameras && data.cameras.length > 0) {
-                    cachedActiveCameras = data.cameras;
-                    return cachedActiveCameras;
-                }
-            }
-        } catch (e) {
-            console.warn('Could not fetch active cameras for ROAR Supervisor:', e);
+        const primaryHost = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
+        const hostsToTry = [primaryHost];
+        if (primaryHost !== 'localhost' && primaryHost !== '127.0.0.1') {
+            hostsToTry.push('localhost');
         }
+
+        for (const host of hostsToTry) {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 1200);
+                const res = await fetch(`http://${host}:9090/api/cameras`, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.cameras && data.cameras.length > 0) {
+                        cachedActiveCameras = data.cameras;
+                        return cachedActiveCameras;
+                    }
+                }
+            } catch (e) {
+                // Ignore timeout/unreachable errors and proceed to fallback
+            }
+        }
+
         return cachedActiveCameras || [];
     }
 
