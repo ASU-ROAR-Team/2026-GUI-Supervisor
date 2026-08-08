@@ -19,15 +19,18 @@ To minimize bandwidth and CPU overhead during rover competition operations:
 
 ## ⚙️ How to Configure Color Mode BEFORE Streaming
 
-### Method 1: Web GUI Pre-Start Configuration Control Panel (Port 9090)
+### Method 1: Pre-Start Configuration Control Panel in the GUI (OpenMCT & Port 9090)
 
-The **Dedicated Camera Control Dashboard** (`http://localhost:9090` or `http://<rover-ip>:9090`) includes a **⚙️ Pre-Start Camera Data Stream Configuration** panel in the header:
+The **Pre-Start Camera Data Stream Configuration** panel is available in **BOTH** web interfaces:
+1. **Dedicated Camera Control Dashboard** (`http://localhost:9090`)
+2. **OpenMCT Rover Control GUI** (`http://localhost:8080` / `5-Camera Grid Dashboard` & Single Camera Views)
 
-1. **Select Data Mode**: Choose between:
+#### Steps to Configure in GUI:
+1. **Select Pre-Start Data Mode**: Choose between:
    - `🏁 Grayscale (Pre-Transmission Data Saving)` *(Default)*
    - `🎨 RGB (Full Color)`
-2. **Apply & Launch**: Click **`▶️ Start All Streams with Selected Mode`** to apply the configuration on the server before live stream data transmission begins.
-3. **Pause Streams**: Click **`⏸ Pause All Streams`** to freeze streams at any time.
+2. **Apply & Launch**: Click **`▶️ Start Streams`** to send the configuration to the server before live stream transmission starts.
+3. **Pause Streams**: Click **`⏸ Pause Streams`** to pause camera streams at any time.
 
 ---
 
@@ -87,8 +90,8 @@ Parameters:
 
 ## 🔌 OpenMCT Plugin Integration
 
-- **Single Camera View Toolbar**: Includes preset buttons (`Standard`, `Outdoor Sun`, `Low Light`, `High Contrast`), a Color Mode selector (`Grayscale` / `RGB`), and a `📸 Screenshot` button.
-- **5-Camera Grid Dashboard**: Provides a `📸 Capture Grid View` button to generate a watermarked multi-camera summary matrix PNG.
+- **Single Camera View Toolbar**: Includes preset buttons (`Standard`, `Outdoor`, `Night`), Pre-Start Data Mode selector (`Grayscale` / `RGB`), `▶️ Start Streams` / `⏸ Pause Streams`, and a `📸 Screenshot` button.
+- **5-Camera Grid Dashboard**: Includes the Pre-Start Control Panel and `📸 Capture Grid View` button to generate a watermarked multi-camera summary matrix PNG.
 
 ---
 
@@ -100,8 +103,6 @@ To verify the setup locally or on the Base Station:
    ```bash
    python3 GUI/web_camera_server.py --mode gray
    ```
-2. Open the Dedicated Camera Dashboard:
-   ```text
-   http://localhost:9090
-   ```
-3. Confirm that the stream header displays `Grayscale (B&W)` and that frame data transmitted over `/api/frame/<cam>` is single-channel JPEG.
+2. Open OpenMCT (`http://localhost:8080`) or Camera Dashboard (`http://localhost:9090`).
+3. Select `Grayscale (Pre-Transmission Data Saving)` in the **⚙️ Pre-Start Data Mode** toolbar and click **`▶️ Start Streams`**.
+4. Confirm that frame data transmitted over `/api/frame/<cam>` is 1-channel Grayscale JPEG.

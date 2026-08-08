@@ -38,26 +38,28 @@
                 form: []
             });
 
-            // --- Quick Adjustments HTML Bar Generator ---
+            // --- Quick Adjustments & Pre-Start Configuration Bar Generator ---
             function getControlBarHTML(host) {
                 return `
                     <div class="cam-control-toolbar">
-                        <div class="toolbar-section">
-                            <span class="toolbar-title">⚡ Lighting Presets:</span>
-                            <button class="btn-ctrl-preset" onclick="window.applyCamPreset('${host}', 'standard')">🏠 Standard</button>
-                            <button class="btn-ctrl-preset" onclick="window.applyCamPreset('${host}', 'outdoor_sun')">☀️ Outdoor Sun</button>
-                            <button class="btn-ctrl-preset" onclick="window.applyCamPreset('${host}', 'low_light')">🌙 Low Light</button>
-                            <button class="btn-ctrl-preset" onclick="window.applyCamPreset('${host}', 'high_contrast')">⚡ High Contrast</button>
+                        <div class="toolbar-section" style="background: #0f172a; padding: 6px 12px; border-radius: 6px; border: 1px solid #334155; display: flex; align-items: center; gap: 10px;">
+                            <span class="toolbar-title" style="color: #38bdf8; font-weight: bold;">⚙️ Pre-Start Data Mode:</span>
+                            <select id="colorSel_${host}" style="background: #1e293b; color: #38bdf8; font-weight: bold; border: 1px solid #475569; padding: 3px 8px; border-radius: 4px;" onchange="window.updateCamControl('${host}')">
+                                <option value="gray" selected>🏁 Grayscale (Pre-Transmission Data Saving)</option>
+                                <option value="rgb">🎨 RGB (Full Color)</option>
+                            </select>
+                            <button class="btn-ctrl-preset" style="background: #10b981; border-color: #059669; font-weight: bold; color: white; padding: 4px 12px;" onclick="window.applyPreStartMode('${host}', true)">▶️ Start Streams</button>
+                            <button class="btn-ctrl-preset" style="background: #ef4444; border-color: #dc2626; font-weight: bold; color: white; padding: 4px 12px;" onclick="window.applyPreStartMode('${host}', false)">⏸ Pause Streams</button>
                         </div>
                         <div class="toolbar-section">
-                            <label>Brightness: <input type="range" id="bSlider_${host}" min="0" max="100" value="50" onchange="window.updateCamControl('${host}')"></label>
-                            <label>Contrast: <input type="range" id="cSlider_${host}" min="0" max="100" value="50" onchange="window.updateCamControl('${host}')"></label>
-                            <label>Color: 
-                                <select id="colorSel_${host}" onchange="window.updateCamControl('${host}')">
-                                    <option value="gray">Grayscale</option>
-                                    <option value="rgb">RGB</option>
-                                </select>
-                            </label>
+                            <span class="toolbar-title">⚡ Presets:</span>
+                            <button class="btn-ctrl-preset" onclick="window.applyCamPreset('${host}', 'standard')">🏠 Standard</button>
+                            <button class="btn-ctrl-preset" onclick="window.applyCamPreset('${host}', 'outdoor_sun')">☀️ Outdoor</button>
+                            <button class="btn-ctrl-preset" onclick="window.applyCamPreset('${host}', 'low_light')">🌙 Night</button>
+                        </div>
+                        <div class="toolbar-section">
+                            <label style="font-size: 0.85rem; color: #cbd5e1;">Brightness: <input type="range" id="bSlider_${host}" min="0" max="100" value="50" onchange="window.updateCamControl('${host}')"></label>
+                            <label style="font-size: 0.85rem; color: #cbd5e1;">Contrast: <input type="range" id="cSlider_${host}" min="0" max="100" value="50" onchange="window.updateCamControl('${host}')"></label>
                             <button class="btn-ctrl-preset" style="background: #0284c7; border-color: #38bdf8; font-weight: bold; margin-left: 5px;" onclick="window.captureCurrentCamView('${host}')">📸 Screenshot</button>
                         </div>
                     </div>
@@ -65,6 +67,23 @@
             }
 
             // Expose global control functions for OpenMCT inline handlers
+            window.applyPreStartMode = function(host, enableStreams) {
+                const colEl = document.getElementById(`colorSel_${host}`);
+                const selectedColor = colEl ? colEl.value : 'gray';
+                const enabledFlag = enableStreams ? 1 : 0;
+                
+                fetch(`http://${host}:9090/api/control?global_color=${selectedColor}`)
+                    .then(() => {
+                        const camNums = [2, 4, 6, 8, 10];
+                        return Promise.all(camNums.map(num => fetch(`http://${host}:9090/api/control?cam=${num}&color=${selectedColor}&enabled=${enabledFlag}`)));
+                    })
+                    .then(() => {
+                        const statusStr = enableStreams ? 'started' : 'paused';
+                        window.showCamToast(`✅ Streams ${statusStr} in ${selectedColor.toUpperCase()} mode!`);
+                    })
+                    .catch(e => console.error("Error applying pre-start mode:", e));
+            };
+
             window.applyCamPreset = function(host, presetName) {
                 fetch(`http://${host}:9090/api/control?preset=${presetName}`)
                     .then(r => r.json())
