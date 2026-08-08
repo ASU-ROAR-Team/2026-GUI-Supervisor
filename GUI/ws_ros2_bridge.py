@@ -13,7 +13,7 @@ try:
     from roar_msgs.msg import ArucoDetectionArray
     ARUCO_AVAILABLE = True
 except ImportError:
-    ARUCO_AVAILABLE = False
+    print("WARNING: roar_msgs.msg.ArucoDetectionArray not found. ArUco functionality will be disabled.")
 from visualization_msgs.msg import Marker
 import json
 import asyncio
