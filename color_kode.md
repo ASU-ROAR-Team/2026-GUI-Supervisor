@@ -2,7 +2,7 @@
 
 ## 📌 Overview
 
-This document specifies the **Camera Stream Color Mode Architecture**, **Pre-Transmission Data Reduction**, and **Snapshot Picture Saving Capabilities** implemented in the ROAR Supervisor & Camera Dashboard system according to **REQ-1**.
+This document specifies the **Camera Stream Color Mode Architecture**, **Pre-Transmission Data Reduction**, and **Snapshot Picture Saving Capabilities** implemented in the ROAR Supervisor, Camera Dashboard, and **Drilling 26 Plugin** according to **REQ-1**.
 
 ---
 
@@ -19,11 +19,12 @@ To minimize bandwidth and CPU overhead during rover competition operations:
 
 ## ⚙️ How to Configure Color Mode BEFORE Streaming
 
-### Method 1: Pre-Start Configuration Control Panel in the GUI (OpenMCT & Port 9090)
+### Method 1: Pre-Start Configuration Control Panel in the GUI (OpenMCT, Drilling 26, & Port 9090)
 
-The **Pre-Start Camera Data Stream Configuration** panel is available in **BOTH** web interfaces:
+The **Pre-Start Camera Data Stream Configuration** panel is available in **ALL** web interfaces:
 1. **Dedicated Camera Control Dashboard** (`http://localhost:9090`)
 2. **OpenMCT Rover Control GUI** (`http://localhost:8080` / `5-Camera Grid Dashboard` & Single Camera Views)
+3. **Drilling 26 Panel** (`Drilling 26 View` in OpenMCT)
 
 #### Steps to Configure in GUI:
 1. **Select Pre-Start Data Mode**: Choose between:
@@ -78,20 +79,27 @@ GET /api/save_snapshot?cam=2&folder=/home/carol/2026-GUI-Supervisor/snapshots
 ```
 
 Parameters:
-- `cam`: Camera index (e.g. `2`, `4`, or `all`).
+- `cam`: Camera index (e.g. `2`, `4`, `6`, `8`, `10`, or `all`).
 - `folder`: Target disk folder path. Automatically creates the target directory if it does not exist.
 
 ### 2. GUI Snapshot Buttons
 - **`💾 Save All to Folder`**: Saves snapshots for all active cameras into the specified folder path.
-- **`💾 Save`**: Located on individual camera headers to save pictures per camera.
+- **`💾 Save`**: Located on individual camera headers (and Drilling 26 Toolbar) to save pictures per camera directly to disk.
 - **`📸 Snap` / `📸 Screenshot`**: HTML5 canvas composite generator with timestamp watermarks and direct browser downloads.
 
 ---
 
-## 🔌 OpenMCT Plugin Integration
+## 🔌 Drilling 26 Plugin Integration (`GUI/plugins/Drilling-26`)
 
-- **Single Camera View Toolbar**: Includes preset buttons (`Standard`, `Outdoor`, `Night`), Pre-Start Data Mode selector (`Grayscale` / `RGB`), `▶️ Start Streams` / `⏸ Pause Streams`, and a `📸 Screenshot` button.
-- **5-Camera Grid Dashboard**: Includes the Pre-Start Control Panel and `📸 Capture Grid View` button to generate a watermarked multi-camera summary matrix PNG.
+The Drilling 26 Panel now features a full camera control toolbar:
+- **a. Configurable Camera Selector Dropdown**: Dynamically detects active cameras (`/dev/video2`, `4`, `6`, `8`, `10`) and allows switching between any camera feed (defaults to Cam 5 - Arm/Tool).
+- **b. Screenshot Capabilities**:
+  - **`📸 Snap`**: Generates a browser download of the current frame with timestamp watermark and camera name.
+  - **`💾 Save`**: Saves a high-res JPEG directly to disk (`/home/carol/2026-GUI-Supervisor/snapshots`).
+- **c. Color Mode & Lighting Controls**:
+  - **Mode Dropdown**: Toggle between `🏁 Grayscale` and `🎨 RGB`.
+  - **Presets**: `🏠 Standard`, `☀️ Sun`, `🌙 Night`.
+  - **Sliders**: Fine-tune Brightness & Contrast in real-time.
 
 ---
 
@@ -103,6 +111,6 @@ To verify the setup locally or on the Base Station:
    ```bash
    python3 GUI/web_camera_server.py --mode gray
    ```
-2. Open OpenMCT (`http://localhost:8080`) or Camera Dashboard (`http://localhost:9090`).
-3. Select `Grayscale (Pre-Transmission Data Saving)` in the **⚙️ Pre-Start Data Mode** toolbar and click **`▶️ Start Streams`**.
-4. Confirm that frame data transmitted over `/api/frame/<cam>` is 1-channel Grayscale JPEG.
+2. Open OpenMCT (`http://localhost:8080`).
+3. Navigate to **Drilling 26 Panel**.
+4. Use the **Select Camera** dropdown to switch between camera feeds, adjust color mode to `Grayscale` or `RGB`, and click **`📸 Snap`** or **`💾 Save`**.
