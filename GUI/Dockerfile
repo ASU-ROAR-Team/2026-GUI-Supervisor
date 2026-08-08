@@ -24,6 +24,6 @@ RUN npm install
 
 COPY . .
 
-EXPOSE 8080 8081 9090
+EXPOSE 8080 8081 9090 9091
 
 CMD ["/bin/bash", "-c", "source /opt/ros/humble/setup.bash && python3 ws_ros2_bridge.py & python3 web_camera_server.py & node server.js"]

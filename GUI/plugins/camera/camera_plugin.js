@@ -4,45 +4,12 @@
     const CAMERA_KEY = 'camera';
     const MULTI_CAMERA_KEY = 'multi-camera';
 
-    function startLowLatencyStream(imgEl, frameUrl) {
-        let active = true;
-        let pending = false;
-
-        async function fetchNextFrame() {
-            if (!active || pending || !document.body.contains(imgEl)) return;
-            pending = true;
-            try {
-                const response = await fetch(frameUrl + (frameUrl.includes('?') ? '&' : '?') + 't=' + Date.now());
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const newUrl = URL.createObjectURL(blob);
-                    const oldUrl = imgEl.src;
-                    imgEl.src = newUrl;
-                    if (oldUrl && oldUrl.startsWith('blob:')) {
-                        setTimeout(() => URL.revokeObjectURL(oldUrl), 100);
-                    }
-                }
-            } catch (e) {
-            } finally {
-                pending = false;
-            }
-        }
-
-        const interval = setInterval(fetchNextFrame, 30);
-        fetchNextFrame();
-
-        return () => {
-            active = false;
-            clearInterval(interval);
-        };
-    }
-
     window.CameraPlugin = function CameraPlugin() {
         return function install(openmct) {
             // --- 1. Define single Camera object type ---
             openmct.types.addType(CAMERA_KEY, {
                 name: 'Camera Stream',
-                description: 'Displays a live video stream from a camera URL.',
+                description: 'Displays a live video stream from a camera URL with quick lighting adjustments.',
                 creatable: true,
                 cssClass: 'icon-camera',
                 initialize(domainObject) {
@@ -59,17 +26,69 @@
                 ]
             });
 
-            // --- 2. Define Multi-Camera Grid object type ---
+            // --- 2. Define 5-Camera Grid object type ---
             openmct.types.addType(MULTI_CAMERA_KEY, {
-                name: 'Multi-Camera Grid Dashboard',
-                description: 'Displays live streams for all USB cameras simultaneously.',
+                name: '5-Camera Grid Dashboard',
+                description: 'Displays live streams for all 5 USB cameras with interactive lighting controls.',
                 creatable: true,
                 cssClass: 'icon-camera',
                 initialize(domainObject) {
-                    domainObject.name = domainObject.name || 'Multi-Camera Grid Dashboard';
+                    domainObject.name = domainObject.name || '5-Camera Grid Dashboard';
                 },
                 form: []
             });
+
+            // --- Quick Adjustments HTML Bar Generator ---
+            function getControlBarHTML(host) {
+                return `
+                    <div class="cam-control-toolbar">
+                        <div class="toolbar-section">
+                            <span class="toolbar-title">⚡ Lighting Presets:</span>
+                            <button class="btn-ctrl-preset" onclick="window.applyCamPreset('${host}', 'standard')">🏠 Standard</button>
+                            <button class="btn-ctrl-preset" onclick="window.applyCamPreset('${host}', 'outdoor_sun')">☀️ Outdoor Sun</button>
+                            <button class="btn-ctrl-preset" onclick="window.applyCamPreset('${host}', 'low_light')">🌙 Low Light</button>
+                            <button class="btn-ctrl-preset" onclick="window.applyCamPreset('${host}', 'high_contrast')">⚡ High Contrast</button>
+                        </div>
+                        <div class="toolbar-section">
+                            <label>Brightness: <input type="range" id="bSlider_${host}" min="0" max="100" value="50" onchange="window.updateCamControl('${host}')"></label>
+                            <label>Contrast: <input type="range" id="cSlider_${host}" min="0" max="100" value="50" onchange="window.updateCamControl('${host}')"></label>
+                            <label>Color: 
+                                <select id="colorSel_${host}" onchange="window.updateCamControl('${host}')">
+                                    <option value="gray">Grayscale</option>
+                                    <option value="rgb">RGB</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Expose global control functions for OpenMCT inline handlers
+            window.applyCamPreset = function(host, presetName) {
+                fetch(`http://${host}:9090/api/control?preset=${presetName}`)
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d.config) {
+                            const bEl = document.getElementById(`bSlider_${host}`);
+                            const cEl = document.getElementById(`cSlider_${host}`);
+                            if (bEl) bEl.value = d.config.brightness;
+                            if (cEl) cEl.value = d.config.contrast;
+                        }
+                    }).catch(e => console.error("Error applying preset:", e));
+            };
+
+            window.updateCamControl = function(host) {
+                const bEl = document.getElementById(`bSlider_${host}`);
+                const cEl = document.getElementById(`cSlider_${host}`);
+                const colEl = document.getElementById(`colorSel_${host}`);
+
+                const bVal = bEl ? bEl.value : 50;
+                const cVal = cEl ? cEl.value : 50;
+                const colorVal = colEl ? colEl.value : 'gray';
+
+                fetch(`http://${host}:9090/api/control?brightness=${bVal}&contrast=${cVal}&global_color=${colorVal}`)
+                    .catch(e => console.error("Error updating camera control:", e));
+            };
 
             // --- 3. Single Camera View Provider ---
             openmct.objectViews.addProvider({
@@ -78,107 +97,75 @@
                 canView: (domainObject) => domainObject.type === CAMERA_KEY,
                 view: (domainObject) => {
                     let cameraElement = null;
-                    let stopStream = null;
 
                     return {
                         show(element) {
+                            const host = window.location.hostname || 'localhost';
                             element.style.padding = '10px';
                             element.style.background = '#0f172a';
                             element.style.height = '100%';
+                            element.style.display = 'flex';
+                            element.style.flexDirection = 'column';
                             element.style.boxSizing = 'border-box';
 
-                            const host = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
                             let url = domainObject.cameraFeedUrl;
                             if (url && url.includes('localhost')) {
                                 url = url.replace('localhost', host);
                             }
 
-                            if (!url) {
-                                element.innerHTML = '<div style="color: #cbd5e1; text-align: center; padding-top: 20px;">Camera Feed URL not configured.</div>';
-                                return;
-                            }
-
-                            const camNum = url.includes('/api/stream/') ? url.split('/').pop() : '';
-                            const devNodeLabel = camNum ? `/dev/video${camNum}` : 'V4L2 Device';
-                            const titleName = domainObject.name || `Camera (${devNodeLabel})`;
-
                             element.innerHTML = `
-                                <div style="display: flex; flex-direction: column; height: 100%; background: #0f172a; border-radius: 8px; overflow: hidden; box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; border: 1px solid #334155;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: #1e293b; border-bottom: 1px solid #334155;">
-                                        <div style="font-weight: 600; color: #38bdf8; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
-                                            <span>${titleName}</span>
-                                        </div>
-                                        <div style="display: flex; align-items: center; gap: 10px;">
-                                            <span style="font-family: monospace; font-size: 0.75rem; background: #334155; color: #94a3b8; padding: 3px 8px; border-radius: 4px;">Node: ${devNodeLabel}</span>
-                                            <span style="display: flex; align-items: center; gap: 5px; font-size: 0.75rem; color: #4ade80; font-weight: 600;">
-                                                <span style="height: 8px; width: 8px; background: #4ade80; border-radius: 50%; display: inline-block;"></span> LIVE
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div style="flex: 1; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden;">
-                                        <img id="single-cam-frame-${camNum || 'default'}" alt="${titleName}" style="width: 100%; height: 100%; object-fit: contain;">
-                                    </div>
+                                ${getControlBarHTML(host)}
+                                <div class="cam-single-wrapper">
+                                    ${url ? `<img id="singleCamImg" src="${url}" alt="Camera Feed" style="width:100%; height:100%; object-fit:contain;">` : '<div style="color: #cbd5e1; text-align: center; padding-top: 20px;">Camera Feed URL not configured.</div>'}
                                 </div>
                             `;
 
-                            cameraElement = element.querySelector('img');
-
-                            if (url.includes('/api/stream/')) {
-                                const frameUrl = `http://${host}:9090/api/frame/${camNum}`;
-                                stopStream = startLowLatencyStream(cameraElement, frameUrl);
-                            } else {
-                                cameraElement.src = url;
+                            cameraElement = element.querySelector('#singleCamImg');
+                            if (cameraElement) {
+                                cameraElement.onerror = () => {
+                                    element.querySelector('.cam-single-wrapper').innerHTML = `<div style="color: #f87171; text-align: center; padding-top: 20px;">Unable to load camera stream from ${url}</div>`;
+                                };
                             }
                         },
                         destroy() {
-                            if (stopStream) stopStream();
                             cameraElement = null;
                         }
                     };
                 }
             });
 
-            // --- 4. Multi-Camera Grid View Provider ---
+            // --- 4. Multi-Camera 5-Grid View Provider ---
             openmct.objectViews.addProvider({
                 key: 'multi-camera-view',
-                name: 'Multi-Camera Grid View',
+                name: '5-Camera Grid View',
                 canView: (domainObject) => domainObject.type === MULTI_CAMERA_KEY,
                 view: (domainObject) => {
-                    let cancelTokens = [];
-
                     return {
-                        async show(element) {
-                            const host = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
-                            let activeCameras = [];
-                            
-                            try {
-                                const res = await fetch(`http://${host}:9090/api/cameras`);
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    activeCameras = data.cameras || [];
-                                }
-                            } catch (e) {
-                                console.warn('Could not fetch active cameras list:', e);
-                            }
-
-                            if (activeCameras.length === 0) {
-                                activeCameras = [
-                                    { dev: '/dev/video0', cam_num: '0', name: 'Camera #1 (/dev/video0)' }
-                                ];
-                            }
+                        show(element) {
+                            const host = window.location.hostname || 'localhost';
+                            const camNums = [2, 4, 6, 8, 10];
+                            const camLabels = [
+                                "Cam 1 (Front - /dev/video2)",
+                                "Cam 2 (Left - /dev/video4)",
+                                "Cam 3 (Right - /dev/video6)",
+                                "Cam 4 (Rear - /dev/video8)",
+                                "Cam 5 (Arm/Tool - /dev/video10)"
+                            ];
 
                             element.innerHTML = `
                                 <div class="multi-cam-container">
                                     <div class="multi-cam-header">
                                         <h3>📹 Multi-Camera Real-Time Monitor</h3>
-                                        <span class="multi-cam-badge">${activeCameras.length} Camera(s) Active</span>
+                                        <span class="multi-cam-badge">Host Laptop Webcam Excluded</span>
                                     </div>
+                                    ${getControlBarHTML(host)}
                                     <div class="multi-cam-grid">
-                                        ${activeCameras.map((cam, i) => `
+                                        ${camNums.map((num, i) => `
                                             <div class="cam-card">
-                                                <div class="cam-card-title">📷 #${i + 1}: ${cam.name} (${cam.dev})</div>
+                                                <div class="cam-card-title">${camLabels[i]}</div>
                                                 <div class="cam-frame">
-                                                    <img id="openmct-cam-${cam.cam_num}" alt="${cam.name}">
+                                                    <img src="http://${host}:9090/api/stream/${num}" alt="${camLabels[i]}" 
+                                                         onerror="this.onerror=null; this.src='http://${host}:9090/api/frame/${num}';">
                                                 </div>
                                             </div>
                                         `).join('')}
@@ -198,12 +185,45 @@
                                         display: flex;
                                         justify-content: space-between;
                                         align-items: center;
-                                        margin-bottom: 15px;
-                                        padding-bottom: 10px;
+                                        margin-bottom: 10px;
+                                        padding-bottom: 8px;
                                         border-bottom: 1px solid #334155;
                                     }
                                     .multi-cam-header h3 { margin: 0; color: #38bdf8; font-size: 1.2rem; }
                                     .multi-cam-badge { background: #0284c7; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; }
+                                    
+                                    .cam-control-toolbar {
+                                        display: flex;
+                                        flex-wrap: wrap;
+                                        justify-content: space-between;
+                                        align-items: center;
+                                        background: #1e293b;
+                                        padding: 10px 15px;
+                                        border-radius: 8px;
+                                        margin-bottom: 15px;
+                                        gap: 10px;
+                                        border: 1px solid #334155;
+                                    }
+                                    .toolbar-section {
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 10px;
+                                        font-size: 0.85rem;
+                                    }
+                                    .toolbar-title { font-weight: bold; color: #38bdf8; }
+                                    .btn-ctrl-preset {
+                                        background: #334155;
+                                        color: #fff;
+                                        border: 1px solid #475569;
+                                        padding: 4px 10px;
+                                        border-radius: 5px;
+                                        cursor: pointer;
+                                        font-size: 0.8rem;
+                                    }
+                                    .btn-ctrl-preset:hover { background: #0284c7; border-color: #38bdf8; }
+                                    
+                                    .cam-single-wrapper { flex: 1; width: 100%; min-height: 0; background: #000; display: flex; align-items: center; justify-content: center; border-radius: 8px; overflow: hidden; }
+
                                     .multi-cam-grid {
                                         display: grid;
                                         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -237,26 +257,15 @@
                                     }
                                 </style>
                             `;
-
-                            // Start low-latency async fetch loops for ONLY available active cameras
-                            activeCameras.forEach(cam => {
-                                const imgEl = element.querySelector(`#openmct-cam-${cam.cam_num}`);
-                                if (imgEl) {
-                                    const frameUrl = `http://${host}:9090/api/frame/${cam.cam_num}`;
-                                    const cancel = startLowLatencyStream(imgEl, frameUrl);
-                                    cancelTokens.push(cancel);
-                                }
-                            });
                         },
                         destroy() {
-                            cancelTokens.forEach(cancel => cancel());
-                            cancelTokens = [];
+                            element.innerHTML = '';
                         }
                     };
                 }
             });
 
-            console.log('Camera Plugin installed successfully.');
+            console.log('Camera Plugin with Quick Adjustments installed successfully.');
         };
     };
 })();

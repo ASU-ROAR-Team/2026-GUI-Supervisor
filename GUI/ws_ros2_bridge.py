@@ -16,7 +16,7 @@ import base64
 import websockets
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 
-PORT = 8080
+PORT = 9091
 
 
 class WSROS2Bridge(Node):
