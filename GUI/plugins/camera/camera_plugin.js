@@ -109,6 +109,22 @@
                 }, 2500);
             };
 
+            window.saveCamToDiskFolder = async function(camNum, host, folderPath) {
+                const folder = folderPath || '/home/carol/2026-GUI-Supervisor/snapshots';
+                window.showCamToast(`💾 Saving camera picture(s) to ${folder}...`);
+                try {
+                    const res = await fetch(`http://${host}:9090/api/save_snapshot?cam=${camNum}&folder=${encodeURIComponent(folder)}`);
+                    const data = await res.json();
+                    if (data.status === 'ok' && data.saved_files.length > 0) {
+                        window.showCamToast(`✅ Saved ${data.saved_files.length} picture(s) to ${folder}`);
+                    } else {
+                        window.showCamToast(`⚠️ Could not save pictures to folder`);
+                    }
+                } catch (e) {
+                    window.showCamToast(`❌ Error saving pictures to folder`);
+                }
+            };
+
             window.captureSingleCamFromGrid = async function(camNum, label, host) {
                 window.showCamToast(`📸 Capturing ${label}...`);
                 try {

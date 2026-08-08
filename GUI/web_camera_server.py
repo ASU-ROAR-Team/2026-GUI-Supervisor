@@ -347,7 +347,40 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"status": "ok", "config": stream_config}).encode('utf-8'))
             return
 
-        # 4. API: List Detected Cameras
+        # 4. API: Save Snapshot to Target Folder on Disk
+        if self.path.startswith('/api/save_snapshot'):
+            from urllib.parse import parse_qs, urlparse
+            query = parse_qs(urlparse(self.path).query)
+            
+            cam_num = query.get('cam', ['2'])[0]
+            target_folder = query.get('folder', ['/home/carol/2026-GUI-Supervisor/snapshots'])[0]
+            
+            os.makedirs(target_folder, exist_ok=True)
+            saved_files = []
+
+            cams_to_save = [dev.replace('/dev/video', '') for dev in DEV_NODES] if cam_num == 'all' else [cam_num]
+
+            timestamp_str = time.strftime('%Y%m%d_%H%M%S')
+            for c_num in cams_to_save:
+                dev_path = f"/dev/video{c_num}"
+                if dev_path in latest_jpeg:
+                    with frame_locks[dev_path]:
+                        data = latest_jpeg[dev_path]
+                    if data:
+                        filename = f"cam_{c_num}_{timestamp_str}.jpg"
+                        filepath = os.path.join(target_folder, filename)
+                        with open(filepath, 'wb') as f:
+                            f.write(data)
+                        saved_files.append(filepath)
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok", "folder": target_folder, "saved_files": saved_files}).encode('utf-8'))
+            return
+
+        # 5. API: List Detected Cameras
         if self.path == '/api/cameras':
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
@@ -366,7 +399,7 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"cameras": cameras_data, "config": stream_config}).encode('utf-8'))
             return
 
-        # 5. Dedicated Camera Dashboard GUI (Port 9090)
+        # 6. Dedicated Camera Dashboard GUI (Port 9090)
         if self.path == '/' or self.path.startswith('/?'):
             self.send_response(200)
             self.send_header('Content-Type', 'text/html')
@@ -466,6 +499,11 @@ class CameraHandler(BaseHTTPRequestHandler):
                     <option value="gray" {"selected" if stream_config["global_color"] == "gray" else ""}>Grayscale (B&W)</option>
                 </select>
             </div>
+            <div class="control-group">
+                <label for="targetFolderInput">📁 Save Folder:</label>
+                <input type="text" id="targetFolderInput" value="/home/carol/2026-GUI-Supervisor/snapshots" style="width: 280px;" placeholder="Path to save images">
+                <button class="btn-preset" onclick="saveToDiskFolder('all')">💾 Save All to Folder</button>
+            </div>
         </div>
     </header>
 
@@ -491,6 +529,7 @@ class CameraHandler(BaseHTTPRequestHandler):
                 </div>
                 <div class="card-actions">
                     <button class="btn-toggle" style="background: #334155; color: #f8fafc; border: 1px solid #475569;" onclick="captureSingleCamera('{cam_num}', '{dev_name}')">📸 Snap</button>
+                    <button class="btn-toggle" style="background: #0284c7; color: #f8fafc; border: 1px solid #38bdf8;" onclick="saveToDiskFolder('{cam_num}')">💾 Save</button>
                     <button id="color-btn-{cam_num}" class="btn-toggle" onclick="toggleColor('{cam_num}')">{btn_color_label}</button>
                     <button id="stream-btn-{cam_num}" class="btn-toggle btn-on" onclick="toggleStream('{cam_num}')">🟢 ON</button>
                 </div>
@@ -626,6 +665,23 @@ class CameraHandler(BaseHTTPRequestHandler):
             document.getElementById('contrastVal').textContent = contrast;
 
             fetch(`/api/control?res=${{res}}&quality=${{quality}}&brightness=${{brightness}}&contrast=${{contrast}}&global_color=${{globalColor}}`);
+        }}
+
+        async function saveToDiskFolder(camNum) {{
+            const folderInput = document.getElementById('targetFolderInput');
+            const folderPath = folderInput ? folderInput.value.trim() : '/home/carol/2026-GUI-Supervisor/snapshots';
+            showToast(`💾 Saving camera snapshot(s) to ${{folderPath}}...`);
+            try {{
+                const res = await fetch(`/api/save_snapshot?cam=${{camNum}}&folder=${{encodeURIComponent(folderPath)}}`);
+                const data = await res.json();
+                if (data.status === 'ok' && data.saved_files.length > 0) {{
+                    showToast(`✅ Saved ${{data.saved_files.length}} image(s) to folder!`);
+                }} else {{
+                    showToast(`⚠️ Could not save images to folder`);
+                }}
+            }} catch (e) {{
+                showToast(`❌ Error saving images to folder`);
+            }}
         }}
 
         async function captureSingleCamera(camNum, devName) {{
