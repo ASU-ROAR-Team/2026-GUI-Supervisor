@@ -173,8 +173,13 @@ def capture_worker(dev_path):
             frame_8u = cv2.convertScaleAbs(frame, alpha=0.03)
             frame = cv2.applyColorMap(frame_8u, cv2.COLORMAP_JET)
 
-        if len(frame.shape) == 2 or (len(frame.shape) == 3 and frame.shape[2] == 1):
-            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+        # Immediate Grayscale Conversion: Drop 3-channel color data right at capture before processing & transmission
+        cam_color = cam_states.get(dev_path, {}).get("color", "gray")
+        is_gray = (stream_config["global_color"] == "gray" or cam_color == "gray")
+
+        if is_gray:
+            if len(frame.shape) == 3 and frame.shape[2] == 3:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # ZED stereo crop
         h, w = frame.shape[:2]
@@ -192,7 +197,7 @@ def capture_worker(dev_path):
         if (w, h) != (target_w, target_h):
             frame = cv2.resize(frame, (target_w, target_h))
 
-        # Lighting Adjustments (Brightness & Contrast)
+        # Lighting Adjustments (Brightness & Contrast) on 1-channel or 3-channel frame
         brightness = stream_config.get("brightness", 50)
         contrast = stream_config.get("contrast", 50)
         if brightness != 50 or contrast != 50:
@@ -200,13 +205,7 @@ def capture_worker(dev_path):
             beta = (brightness - 50) * 2.0
             frame = cv2.convertScaleAbs(frame, alpha=alpha, beta=beta)
 
-        # Grayscale filter
-        cam_color = cam_states.get(dev_path, {}).get("color", "rgb")
-        if stream_config["global_color"] == "gray" or cam_color == "gray":
-            if len(frame.shape) == 3 and frame.shape[2] == 3:
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-        # JPEG Compression
+        # JPEG Compression (Encodes 1-channel Grayscale or 3-channel RGB depending on selected mode)
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), stream_config["quality"]]
         _, jpeg_buffer = cv2.imencode('.jpg', frame, encode_param)
         
