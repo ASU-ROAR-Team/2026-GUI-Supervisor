@@ -41,6 +41,21 @@
             this.locationSliderDebounceTimer = null;
             this.LOCATION_DEBOUNCE_MS = 150;
 
+            // Camera Host & Selection State
+            this.cameraHost = window.location.hostname || "localhost";
+            this.selectedCamNum = "10"; // Default to Cam 5 (Arm/Tool)
+
+            // Camera Control DOM refs
+            this.camSelectElement        = null;
+            this.colorSelectElement      = null;
+            this.brightnessSlider        = null;
+            this.contrastSlider          = null;
+            this.presetStandardBtn       = null;
+            this.presetSunBtn            = null;
+            this.presetNightBtn          = null;
+            this.snapshotBtn             = null;
+            this.saveDiskBtn             = null;
+
             // DOM refs
             this.rosStatusDot            = null;
             this.rosStatus               = null;
@@ -193,6 +208,72 @@
             }
         }
 
+        startDirectCameraStream() {
+            if (!this.webcamImageElement) return;
+            const camNum = this.selectedCamNum || '10';
+            const streamUrl = `http://${this.cameraHost}:9090/api/stream/${camNum}`;
+            const fallbackUrl = `http://${this.cameraHost}:9090/api/frame/${camNum}`;
+
+            this.webcamImageElement.src = `${streamUrl}?t=${Date.now()}`;
+            this.webcamImageElement.style.display = 'block';
+            this.hideWebcamStatus();
+
+            this.webcamImageElement.onerror = () => {
+                this.webcamImageElement.onerror = null;
+                this.webcamImageElement.src = `${fallbackUrl}?t=${Date.now()}`;
+            };
+        }
+
+        async fetchActiveCameras() {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 1500);
+                const res = await fetch(`http://${this.cameraHost}:9090/api/cameras`, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.cameras && data.cameras.length > 0 && this.camSelectElement) {
+                    this.camSelectElement.innerHTML = '';
+                    data.cameras.forEach(cam => {
+                        const opt = document.createElement('option');
+                        opt.value = cam.cam_num;
+                        opt.textContent = `📷 ${cam.name} (${cam.device})`;
+                        if (cam.cam_num === "10" || cam.cam_num === 10) opt.selected = true;
+                        this.camSelectElement.appendChild(opt);
+                    });
+                    if (this.camSelectElement.value) {
+                        this.selectedCamNum = this.camSelectElement.value;
+                    }
+                }
+                this.startDirectCameraStream();
+            } catch (e) {
+                console.log("[Drilling26View] Could not fetch dynamic camera list, using defaults.");
+                this.startDirectCameraStream();
+            }
+        }
+
+        updateCameraControl() {
+            const camNum = this.selectedCamNum || '10';
+            const colorVal = this.colorSelectElement ? this.colorSelectElement.value : 'gray';
+            const bVal = this.brightnessSlider ? this.brightnessSlider.value : 50;
+            const cVal = this.contrastSlider ? this.contrastSlider.value : 50;
+
+            fetch(`http://${this.cameraHost}:9090/api/control?cam=${camNum}&color=${colorVal}&brightness=${bVal}&contrast=${cVal}`)
+                .catch(e => console.error("Error updating camera control:", e));
+        }
+
+        applyCameraPreset(presetName) {
+            fetch(`http://${this.cameraHost}:9090/api/control?preset=${presetName}`)
+                .then(r => r.json())
+                .then(d => {
+                    if (d.config) {
+                        if (this.brightnessSlider) this.brightnessSlider.value = d.config.brightness;
+                        if (this.contrastSlider) this.contrastSlider.value = d.config.contrast;
+                    }
+                })
+                .catch(e => console.error("Error applying preset:", e));
+        }
+
         handleCameraFrame(data) {
             if (!data || !data.data) return;
             const src = `data:image/jpeg;base64,${data.data}`;
@@ -201,7 +282,6 @@
                 this.webcamImageElement.style.display = 'block';
             }
             this.hideWebcamStatus();
-            if (this.webcamSnapshotButton) this.webcamSnapshotButton.style.display = 'flex';
         }
 
         stopWebcam() {
@@ -209,16 +289,74 @@
                 this.webcamImageElement.src = '';
                 this.webcamImageElement.style.display = 'none';
             }
-            if (this.webcamSnapshotButton) this.webcamSnapshotButton.style.display = 'none';
             this.displayWebcamStatus('Webcam stream paused/stopped.', 'info');
         }
 
         takeWebcamSnapshot() {
-            if (!this.webcamImageElement || !this.webcamImageElement.src) return;
-            const link      = document.createElement('a');
-            link.href       = this.webcamImageElement.src;
-            link.download   = `drilling-snapshot-${Date.now()}.jpg`;
-            link.click();
+            const camNum = this.selectedCamNum || '10';
+            const camName = this.camSelectElement && this.camSelectElement.options[this.camSelectElement.selectedIndex]
+                ? this.camSelectElement.options[this.camSelectElement.selectedIndex].textContent
+                : `Camera ${camNum}`;
+
+            this.showToast(`📸 Capturing snapshot from ${camName}...`);
+            const frameUrl = `http://${this.cameraHost}:9090/api/frame/${camNum}?t=${Date.now()}`;
+            
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth || 640;
+                canvas.height = img.naturalHeight || 480;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+
+                // Add watermark
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+                ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = 'bold 16px system-ui, sans-serif';
+                ctx.fillText(`📷 DRILLING VIEW: ${camName}`, 15, canvas.height - 14);
+
+                const nowStr = new Date().toLocaleString();
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '12px system-ui, sans-serif';
+                ctx.fillText(nowStr, canvas.width - 200, canvas.height - 14);
+
+                const link = document.createElement('a');
+                link.download = `drilling-cam-${camNum}-${Date.now()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                this.showToast(`✅ Snapshot saved to browser downloads!`);
+            };
+            img.onerror = () => this.showToast(`⚠️ Could not capture snapshot frame`);
+            img.src = frameUrl;
+        }
+
+        async saveToDiskFolder() {
+            const camNum = this.selectedCamNum || '10';
+            const folderPath = '/home/carol/2026-GUI-Supervisor/snapshots';
+            this.showToast(`💾 Saving snapshot from Cam ${camNum} to disk...`);
+            try {
+                const res = await fetch(`http://${this.cameraHost}:9090/api/save_snapshot?cam=${camNum}&folder=${encodeURIComponent(folderPath)}`);
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    this.showToast(`✅ Saved image to ${folderPath}!`);
+                } else {
+                    this.showToast(`⚠️ Failed to save image to disk`);
+                }
+            } catch (e) {
+                this.showToast(`❌ Error saving image to disk`);
+            }
+        }
+
+        showToast(msg) {
+            if (window.showCamToast) {
+                window.showCamToast(msg);
+            } else {
+                console.log("[DrillingToast]", msg);
+            }
         }
 
         displayWebcamStatus(message, type = 'info') {
@@ -280,17 +418,65 @@
             const webcamContainer = this.element.querySelector('#drillingWebcamContainer');
             if (webcamContainer) {
                 this.webcamImageElement     = webcamContainer.querySelector('#drillingWebcamImage');
-                this.webcamSnapshotButton   = webcamContainer.querySelector('#drillingSnapshotButton');
                 this.webcamStatusMsgElement = webcamContainer.querySelector('#drillingWebcamStatusMessage');
-                if (this.webcamImageElement)    this.webcamImageElement.style.display    = 'none';
-                if (this.webcamSnapshotButton)  this.webcamSnapshotButton.style.display  = 'none';
+                
+                this.camSelectElement       = webcamContainer.querySelector('#drillingCamSelect');
+                this.colorSelectElement     = webcamContainer.querySelector('#drillingColorSelect');
+                this.brightnessSlider       = webcamContainer.querySelector('#drillingBrightnessSlider');
+                this.contrastSlider         = webcamContainer.querySelector('#drillingContrastSlider');
+                this.presetStandardBtn      = webcamContainer.querySelector('#drillingPresetStandard');
+                this.presetSunBtn           = webcamContainer.querySelector('#drillingPresetSun');
+                this.presetNightBtn         = webcamContainer.querySelector('#drillingPresetNight');
+                this.snapshotBtn            = webcamContainer.querySelector('#drillingSnapshotBtn');
+                this.saveDiskBtn            = webcamContainer.querySelector('#drillingSaveDiskBtn');
             }
 
             this.addEventListeners();
             this.updateManualControlUIState();
+            this.fetchActiveCameras();
         }
 
         addEventListeners() {
+            if (this.camSelectElement) {
+                this.camSelectElement.addEventListener('change', (e) => {
+                    this.selectedCamNum = e.target.value;
+                    this.startDirectCameraStream();
+                    this.updateCameraControl();
+                });
+            }
+
+            if (this.colorSelectElement) {
+                this.colorSelectElement.addEventListener('change', () => this.updateCameraControl());
+            }
+
+            if (this.brightnessSlider) {
+                this.brightnessSlider.addEventListener('change', () => this.updateCameraControl());
+            }
+
+            if (this.contrastSlider) {
+                this.contrastSlider.addEventListener('change', () => this.updateCameraControl());
+            }
+
+            if (this.presetStandardBtn) {
+                this.presetStandardBtn.addEventListener('click', () => this.applyCameraPreset('standard'));
+            }
+
+            if (this.presetSunBtn) {
+                this.presetSunBtn.addEventListener('click', () => this.applyCameraPreset('outdoor_sun'));
+            }
+
+            if (this.presetNightBtn) {
+                this.presetNightBtn.addEventListener('click', () => this.applyCameraPreset('low_light'));
+            }
+
+            if (this.snapshotBtn) {
+                this.snapshotBtn.addEventListener('click', () => this.takeWebcamSnapshot());
+            }
+
+            if (this.saveDiskBtn) {
+                this.saveDiskBtn.addEventListener('click', () => this.saveToDiskFolder());
+            }
+
             if (this.platformUpButton) {
                 this.platformUpButton.addEventListener('click', () => {
                     if (!this.platformUpButton.disabled) {
@@ -412,10 +598,6 @@
             
             // NEW: Motor 2 Listeners
             this.bindMotorButtons(this.motor2Btns, 'motor2');
-
-            if (this.webcamSnapshotButton) {
-                this.webcamSnapshotButton.addEventListener('click', () => this.takeWebcamSnapshot());
-            }
         }
 
         // NEW: Helper method to handle CW/OFF/CCW buttons dynamically

@@ -16,13 +16,46 @@
         
         <div class="drilling-controls-grid">
             <div class="drilling-control-section" id="drillingWebcamContainer">
-                <h2 class="drilling-section-header"><span class="drilling-section-header-icon">&#x1F4F7;</span> Live Camera</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                    <h2 class="drilling-section-header" style="margin:0;"><span class="drilling-section-header-icon">📷</span> Live Camera</h2>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <label for="drillingCamSelect" style="font-size: 0.85rem; color: #cbd5e1; font-weight: 600;">Select Camera:</label>
+                        <select id="drillingCamSelect" style="background: #1e293b; color: #38bdf8; font-weight: bold; border: 1px solid #475569; padding: 4px 10px; border-radius: 4px; font-size: 0.85rem;">
+                            <option value="10">Cam 5 (Arm/Tool - /dev/video10)</option>
+                            <option value="2">Cam 1 (Front - /dev/video2)</option>
+                            <option value="4">Cam 2 (Left - /dev/video4)</option>
+                            <option value="6">Cam 3 (Right - /dev/video6)</option>
+                            <option value="8">Cam 4 (Rear - /dev/video8)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="drilling-cam-toolbar" style="background: #0f172a; padding: 8px 12px; border-radius: 6px; border: 1px solid #334155; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <span style="font-size: 0.8rem; color: #94a3b8; font-weight: bold;">Mode:</span>
+                        <select id="drillingColorSelect" style="background: #1e293b; color: #38bdf8; font-size: 0.8rem; border: 1px solid #475569; padding: 3px 6px; border-radius: 4px;">
+                            <option value="gray" selected>🏁 Grayscale</option>
+                            <option value="rgb">🎨 RGB</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <button id="drillingPresetStandard" class="drilling-control-button" style="padding: 2px 6px; font-size: 0.75rem;">🏠 Standard</button>
+                        <button id="drillingPresetSun" class="drilling-control-button" style="padding: 2px 6px; font-size: 0.75rem;">☀️ Sun</button>
+                        <button id="drillingPresetNight" class="drilling-control-button" style="padding: 2px 6px; font-size: 0.75rem;">🌙 Night</button>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <label style="font-size: 0.75rem; color: #cbd5e1;">B: <input type="range" id="drillingBrightnessSlider" min="0" max="100" value="50" style="width:60px;"></label>
+                        <label style="font-size: 0.75rem; color: #cbd5e1;">C: <input type="range" id="drillingContrastSlider" min="0" max="100" value="50" style="width:60px;"></label>
+                    </div>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <button id="drillingSnapshotBtn" class="drilling-control-button" style="background: #0284c7; border-color: #38bdf8; padding: 3px 10px; font-size: 0.8rem; font-weight: bold;">📸 Snap</button>
+                        <button id="drillingSaveDiskBtn" class="drilling-control-button" style="background: #059669; border-color: #10b981; padding: 3px 10px; font-size: 0.8rem; font-weight: bold;">💾 Save</button>
+                    </div>
+                </div>
+
                 <div class="drilling-webcam-feed-wrapper">
                     <img id="drillingWebcamImage">
                     <div id="drillingWebcamStatusMessage" class="drilling-webcam-status-message">Loading camera feed...</div>
-                    <button id="drillingSnapshotButton" class="drilling-snapshot-button">
-                        <div class="drilling-snapshot-inner-circle"></div>
-                    </button>
                 </div>
             </div>
             
