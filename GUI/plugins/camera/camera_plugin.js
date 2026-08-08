@@ -58,6 +58,7 @@
                                     <option value="rgb">RGB</option>
                                 </select>
                             </label>
+                            <button class="btn-ctrl-preset" style="background: #0284c7; border-color: #38bdf8; font-weight: bold; margin-left: 5px;" onclick="window.captureCurrentCamView('${host}')">📸 Screenshot</button>
                         </div>
                     </div>
                 `;
@@ -88,6 +89,183 @@
 
                 fetch(`http://${host}:9090/api/control?brightness=${bVal}&contrast=${cVal}&global_color=${colorVal}`)
                     .catch(e => console.error("Error updating camera control:", e));
+            };
+
+            // Global Snapshot Handlers for OpenMCT
+            window.showCamToast = function(msg) {
+                let toast = document.getElementById('openmct-cam-toast');
+                if (!toast) {
+                    toast = document.createElement('div');
+                    toast.id = 'openmct-cam-toast';
+                    toast.style.cssText = 'position:fixed; bottom:20px; right:20px; background:#0284c7; color:white; padding:12px 20px; border-radius:8px; font-weight:600; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:99999; transition:all 0.3s; opacity:0; transform:translateY(20px); pointer-events:none; font-family:system-ui,sans-serif;';
+                    document.body.appendChild(toast);
+                }
+                toast.textContent = msg;
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(20px)';
+                }, 2500);
+            };
+
+            window.captureSingleCamFromGrid = async function(camNum, label, host) {
+                window.showCamToast(`📸 Capturing ${label}...`);
+                try {
+                    const response = await fetch(`http://${host}:9090/api/frame/${camNum}?t=${Date.now()}`);
+                    if (!response.ok) throw new Error("Frame unavailable");
+                    const blob = await response.blob();
+                    const img = new Image();
+                    const url = URL.createObjectURL(blob);
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.naturalWidth || 640;
+                        canvas.height = img.naturalHeight || 480;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+
+                        const timestamp = new Date().toLocaleString();
+                        const text = `${label} | ${timestamp}`;
+                        ctx.font = 'bold 14px system-ui, sans-serif';
+                        const tw = ctx.measureText(text).width;
+                        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+                        ctx.fillRect(canvas.width - tw - 24, canvas.height - 34, tw + 16, 26);
+                        ctx.fillStyle = '#38bdf8';
+                        ctx.fillText(text, canvas.width - tw - 16, canvas.height - 16);
+
+                        const fileTime = new Date().toISOString().replace(/[:.]/g, '-');
+                        const link = document.createElement('a');
+                        link.download = `openmct-cam-${camNum}-${fileTime}.png`;
+                        link.href = canvas.toDataURL('image/png');
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                        window.showCamToast(`✅ Saved ${label} snapshot!`);
+                    };
+                    img.src = url;
+                } catch (e) {
+                    window.showCamToast(`❌ Failed to capture ${label}`);
+                }
+            };
+
+            window.captureCurrentCamView = function(host) {
+                const imgEl = document.getElementById('singleCamImg');
+                if (imgEl && imgEl.src) {
+                    const src = imgEl.src;
+                    let camNum = '2';
+                    const match = src.match(/\/api\/(?:stream|frame)\/(\d+)/);
+                    if (match) camNum = match[1];
+                    window.captureSingleCamFromGrid(camNum, `Camera Feed (${camNum})`, host);
+                } else {
+                    alert("No active camera feed URL loaded to capture.");
+                }
+            };
+
+            window.captureMultiCamGrid = async function(host) {
+                window.showCamToast('📸 Composite 5-Camera grid snapshot in progress...');
+                const camNums = [2, 4, 6, 8, 10];
+                const camLabels = [
+                    "Cam 1 (Front - /dev/video2)",
+                    "Cam 2 (Left - /dev/video4)",
+                    "Cam 3 (Right - /dev/video6)",
+                    "Cam 4 (Rear - /dev/video8)",
+                    "Cam 5 (Arm/Tool - /dev/video10)"
+                ];
+
+                const cols = 3;
+                const rows = 2;
+                const cellW = 640;
+                const cellH = 480;
+                const headerH = 40;
+                const padding = 20;
+                const topBannerH = 80;
+
+                const canvasW = cols * cellW + (cols + 1) * padding;
+                const canvasH = topBannerH + rows * (cellH + headerH) + (rows + 1) * padding;
+
+                const canvas = document.createElement('canvas');
+                canvas.width = canvasW;
+                canvas.height = canvasH;
+                const ctx = canvas.getContext('2d');
+
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, canvasW, canvasH);
+
+                const bannerGradient = ctx.createLinearGradient(0, 0, canvasW, 0);
+                bannerGradient.addColorStop(0, '#1e293b');
+                bannerGradient.addColorStop(1, '#0f172a');
+                ctx.fillStyle = bannerGradient;
+                ctx.fillRect(padding, padding, canvasW - 2 * padding, topBannerH - padding);
+
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = 'bold 22px system-ui, sans-serif';
+                ctx.fillText('📹 OPENMCT 5-CAMERA MONITOR SNAPSHOT', padding + 20, padding + 32);
+
+                const nowStr = new Date().toLocaleString();
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '14px system-ui, sans-serif';
+                ctx.fillText(`Host: ${host}  |  Captured: ${nowStr}`, padding + 20, padding + 54);
+
+                const images = await Promise.all(camNums.map(async (num, idx) => {
+                    try {
+                        const response = await fetch(`http://${host}:9090/api/frame/${num}?t=${Date.now()}`);
+                        if (!response.ok) return null;
+                        const blob = await response.blob();
+                        const img = new Image();
+                        const url = URL.createObjectURL(blob);
+                        await new Promise((res, rej) => {
+                            img.onload = res;
+                            img.onerror = rej;
+                        });
+                        return { num, label: camLabels[idx], img, url };
+                    } catch (e) {
+                        return null;
+                    }
+                }));
+
+                images.forEach((item, idx) => {
+                    const c = idx % cols;
+                    const r = Math.floor(idx / cols);
+
+                    const x = padding + c * (cellW + padding);
+                    const y = topBannerH + padding + r * (cellH + headerH + padding);
+
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(x, y, cellW, cellH + headerH);
+                    ctx.strokeStyle = '#334155';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x, y, cellW, cellH + headerH);
+
+                    ctx.fillStyle = '#334155';
+                    ctx.fillRect(x, y, cellW, headerH);
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.font = 'bold 15px system-ui, sans-serif';
+                    ctx.fillText(`📷 ${camLabels[idx]}`, x + 15, y + 25);
+
+                    if (item && item.img) {
+                        ctx.drawImage(item.img, x, y + headerH, cellW, cellH);
+                        URL.revokeObjectURL(item.url);
+                    } else {
+                        ctx.fillStyle = '#000000';
+                        ctx.fillRect(x, y + headerH, cellW, cellH);
+                        ctx.fillStyle = '#94a3b8';
+                        ctx.font = 'bold 18px system-ui, sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('⏸ STREAM PAUSED / OFFLINE', x + cellW / 2, y + headerH + cellH / 2);
+                        ctx.textAlign = 'left';
+                    }
+                });
+
+                const fileTime = new Date().toISOString().replace(/[:.]/g, '-');
+                const link = document.createElement('a');
+                link.download = `openmct-5cam-grid-${fileTime}.png`;
+                link.href = canvas.toDataURL('image/png');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                window.showCamToast('✅ Multi-camera grid screenshot saved!');
             };
 
             // --- 3. Single Camera View Provider ---
@@ -156,13 +334,19 @@
                                 <div class="multi-cam-container">
                                     <div class="multi-cam-header">
                                         <h3>📹 Multi-Camera Real-Time Monitor</h3>
-                                        <span class="multi-cam-badge">Host Laptop Webcam Excluded</span>
+                                        <div style="display: flex; gap: 10px; align-items: center;">
+                                            <button class="btn-ctrl-preset" style="background: #0284c7; border-color: #38bdf8; padding: 5px 14px; font-weight: 600;" onclick="window.captureMultiCamGrid('${host}')">📸 Capture Grid View</button>
+                                            <span class="multi-cam-badge">Host Laptop Webcam Excluded</span>
+                                        </div>
                                     </div>
                                     ${getControlBarHTML(host)}
                                     <div class="multi-cam-grid">
                                         ${camNums.map((num, i) => `
                                             <div class="cam-card">
-                                                <div class="cam-card-title">${camLabels[i]}</div>
+                                                <div class="cam-card-title" style="display: flex; justify-content: space-between; align-items: center;">
+                                                    <span>${camLabels[i]}</span>
+                                                    <button class="btn-ctrl-preset" style="padding: 2px 8px; font-size: 0.75rem;" onclick="window.captureSingleCamFromGrid(${num}, '${camLabels[i]}', '${host}')">📸 Snap</button>
+                                                </div>
                                                 <div class="cam-frame">
                                                     <img src="http://${host}:9090/api/stream/${num}" alt="${camLabels[i]}" 
                                                          onerror="this.onerror=null; this.src='http://${host}:9090/api/frame/${num}';">

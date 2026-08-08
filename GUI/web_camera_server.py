@@ -423,7 +423,10 @@ class CameraHandler(BaseHTTPRequestHandler):
     <header>
         <div class="header-top">
             <h1>📹 Dedicated Robotic Camera Control Dashboard</h1>
-            <span class="badge">{len(DEV_NODES)} Stream(s) Active</span>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button class="btn-preset" style="background: #0284c7; border-color: #38bdf8; font-size: 0.9rem;" onclick="captureMultiCameraDashboard()">📸 Capture Multi-Cam Dashboard</button>
+                <span class="badge">{len(DEV_NODES)} Stream(s) Active</span>
+            </div>
         </div>
         <div class="preset-bar">
             <span><strong>⚡ Quick Lighting Presets:</strong></span>
@@ -487,6 +490,7 @@ class CameraHandler(BaseHTTPRequestHandler):
                     <span>📷 Stream #{idx}: {dev_name} <small style="opacity: 0.6;">({dev})</small></span>
                 </div>
                 <div class="card-actions">
+                    <button class="btn-toggle" style="background: #334155; color: #f8fafc; border: 1px solid #475569;" onclick="captureSingleCamera('{cam_num}', '{dev_name}')">📸 Snap</button>
                     <button id="color-btn-{cam_num}" class="btn-toggle" onclick="toggleColor('{cam_num}')">{btn_color_label}</button>
                     <button id="stream-btn-{cam_num}" class="btn-toggle btn-on" onclick="toggleStream('{cam_num}')">🟢 ON</button>
                 </div>
@@ -509,6 +513,23 @@ class CameraHandler(BaseHTTPRequestHandler):
         camNums.forEach(num => {{
             camState[num] = {{ enabled: true, color: initialMode }};
         }});
+
+        function showToast(msg) {{
+            let toast = document.getElementById('snap-toast');
+            if (!toast) {{
+                toast = document.createElement('div');
+                toast.id = 'snap-toast';
+                toast.style.cssText = 'position:fixed; bottom:20px; right:20px; background:#0284c7; color:white; padding:12px 20px; border-radius:8px; font-weight:600; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:9999; transition:all 0.3s; opacity:0; transform:translateY(20px); pointer-events:none; font-family:system-ui,sans-serif;';
+                document.body.appendChild(toast);
+            }}
+            toast.textContent = msg;
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+            setTimeout(() => {{
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(20px)';
+            }}, 2500);
+        }}
 
         async function startCameraLoop(camNum) {{
             const imgEl = document.getElementById('cam-' + camNum);
@@ -605,6 +626,151 @@ class CameraHandler(BaseHTTPRequestHandler):
             document.getElementById('contrastVal').textContent = contrast;
 
             fetch(`/api/control?res=${{res}}&quality=${{quality}}&brightness=${{brightness}}&contrast=${{contrast}}&global_color=${{globalColor}}`);
+        }}
+
+        async function captureSingleCamera(camNum, devName) {{
+            showToast(`📸 Capturing Camera ${{camNum}}...`);
+            try {{
+                const response = await fetch('/api/frame/' + camNum + '?t=' + Date.now());
+                if (!response.ok) throw new Error("Frame unavailable");
+                const blob = await response.blob();
+                const img = new Image();
+                const url = URL.createObjectURL(blob);
+                img.onload = () => {{
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth || 640;
+                    canvas.height = img.naturalHeight || 480;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+
+                    const timestamp = new Date().toLocaleString();
+                    const text = `${{devName || 'Camera ' + camNum}} | ${{timestamp}}`;
+                    ctx.font = 'bold 14px system-ui, sans-serif';
+                    const tw = ctx.measureText(text).width;
+                    ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+                    ctx.fillRect(canvas.width - tw - 24, canvas.height - 34, tw + 16, 26);
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.fillText(text, canvas.width - tw - 16, canvas.height - 16);
+
+                    const fileTime = new Date().toISOString().replace(/[:.]/g, '-');
+                    const link = document.createElement('a');
+                    link.download = `camera-${{camNum}}-snapshot-${{fileTime}}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    showToast(`✅ Saved camera-${{camNum}} snapshot!`);
+                }};
+                img.src = url;
+            }} catch (e) {{
+                showToast(`❌ Failed to capture camera ${{camNum}}`);
+            }}
+        }}
+
+        async function captureMultiCameraDashboard() {{
+            showToast('📸 Composite multi-camera snapshot in progress...');
+            const count = camNums.length;
+            if (count === 0) {{
+                showToast('⚠️ No active cameras to capture');
+                return;
+            }}
+
+            const cols = count > 3 ? 3 : (count > 1 ? 2 : 1);
+            const rows = Math.ceil(count / cols);
+
+            const cellW = 640;
+            const cellH = 480;
+            const headerH = 40;
+            const padding = 20;
+            const topBannerH = 80;
+
+            const canvasW = cols * cellW + (cols + 1) * padding;
+            const canvasH = topBannerH + rows * (cellH + headerH) + (rows + 1) * padding;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = canvasW;
+            canvas.height = canvasH;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#0b0f19';
+            ctx.fillRect(0, 0, canvasW, canvasH);
+
+            const bannerGradient = ctx.createLinearGradient(0, 0, canvasW, 0);
+            bannerGradient.addColorStop(0, '#151d30');
+            bannerGradient.addColorStop(1, '#1e293b');
+            ctx.fillStyle = bannerGradient;
+            ctx.fillRect(padding, padding, canvasW - 2 * padding, topBannerH - padding);
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'bold 22px system-ui, sans-serif';
+            ctx.fillText('📹 ROAR MULTI-CAMERA DASHBOARD SNAPSHOT', padding + 20, padding + 32);
+
+            const nowStr = new Date().toLocaleString();
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '14px system-ui, sans-serif';
+            ctx.fillText(`Active Feeds: ${{count}}  |  Captured: ${{nowStr}}`, padding + 20, padding + 54);
+
+            const images = await Promise.all(camNums.map(async (camNum) => {{
+                try {{
+                    const response = await fetch('/api/frame/' + camNum + '?t=' + Date.now());
+                    if (!response.ok) return null;
+                    const blob = await response.blob();
+                    const img = new Image();
+                    const url = URL.createObjectURL(blob);
+                    await new Promise((res, rej) => {{
+                        img.onload = res;
+                        img.onerror = rej;
+                    }});
+                    return {{ camNum, img, url }};
+                }} catch (e) {{
+                    return null;
+                }}
+            }}));
+
+            images.forEach((item, idx) => {{
+                const c = idx % cols;
+                const r = Math.floor(idx / cols);
+
+                const x = padding + c * (cellW + padding);
+                const y = topBannerH + padding + r * (cellH + headerH + padding);
+
+                ctx.fillStyle = '#151d30';
+                ctx.fillRect(x, y, cellW, cellH + headerH);
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, cellW, cellH + headerH);
+
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(x, y, cellW, headerH);
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = 'bold 15px system-ui, sans-serif';
+                const devTitle = `📷 Stream #${{idx + 1}} (Camera /dev/video${{item ? item.camNum : ''}})`;
+                ctx.fillText(devTitle, x + 15, y + 25);
+
+                if (item && item.img) {{
+                    ctx.drawImage(item.img, x, y + headerH, cellW, cellH);
+                    URL.revokeObjectURL(item.url);
+                }} else {{
+                    ctx.fillStyle = '#000000';
+                    ctx.fillRect(x, y + headerH, cellW, cellH);
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.font = 'bold 18px system-ui, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('⏸ STREAM PAUSED / NO FEED', x + cellW / 2, y + headerH + cellH / 2);
+                    ctx.textAlign = 'left';
+                }}
+            }});
+
+            const fileTime = new Date().toISOString().replace(/[:.]/g, '-');
+            const link = document.createElement('a');
+            link.download = `multi-camera-dashboard-${{fileTime}}.png`;
+            link.href = canvas.toDataURL('image/png');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showToast('✅ Multi-camera dashboard screenshot saved!');
         }}
 
         camNums.forEach(num => startCameraLoop(num));
