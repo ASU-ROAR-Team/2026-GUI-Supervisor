@@ -89,8 +89,10 @@ window.StartComboPlugin = function StartComboPlugin() {
         // driven by the button clicks, *conditional* on supervisor aliveness.
         function handleSupervisorAlivenessForTimer() {
             if (!isSupervisorAlive) {
-                console.log('StartComboPlugin: Supervisor is not alive. Resetting OpenMCT Timer.');
-                controlOpenMCTTimer('timer.stop'); // Hard reset if supervisor is dead
+                console.warn('StartComboPlugin: Supervisor is not alive. Operating timer in fallback mode without resetting.');
+                if (openmct && openmct.notifications) {
+                    openmct.notifications.warn('Supervisor node is offline or unresponsive. Operating in fallback mode.');
+                }
             } else {
                 console.log('StartComboPlugin: Supervisor is alive. Allowing button commands to control OpenMCT Timer.');
                 // No action here if supervisor is alive; timer state is managed by button clicks
@@ -266,11 +268,21 @@ window.StartComboPlugin = function StartComboPlugin() {
 
                                 if (activeTabIndex === NAVIGATION_TAB_INDEX) {
                                     if (!isSupervisorAlive) {
-                                        console.warn(`StartComboPlugin: Supervisor is not alive. Command "${supervisorCommand}" will not be sent, and timer will not be affected by this button press.`);
-                                        return;
+                                        console.warn(`StartComboPlugin: Supervisor is not alive. Command "${supervisorCommand}" proceeding in fallback mode.`);
+                                        if (capturedOpenmctForView && capturedOpenmctForView.notifications) {
+                                            capturedOpenmctForView.notifications.warn(`Supervisor offline. Command "${supervisorCommand}" executed in fallback mode.`);
+                                        }
                                     }
 
                                     console.log('StartComboPlugin: Navigation tab is active. Triggering supervisor/mode actions.');
+
+                                    if (supervisorCommand === "start") {
+                                        controlOpenMCTTimer('timer.start');
+                                    } else if (supervisorCommand === "stop") {
+                                        controlOpenMCTTimer('timer.pause');
+                                    } else if (supervisorCommand === "reset") {
+                                        controlOpenMCTTimer('timer.stop');
+                                    }
 
                                     if (supervisorCommand && rosConnection && rosConnection.isConnected) {
                                         try {
@@ -283,27 +295,14 @@ window.StartComboPlugin = function StartComboPlugin() {
 
                                             launchService.callService(request, (result) => {
                                                 console.log(`StartComboPlugin: ROS service call result for "${supervisorCommand}": success=${result.success}, message="${result.message}"`);
-
-                                                if (result.success) {
-                                                    console.log(`StartComboPlugin: ROS service call success for "${supervisorCommand}". Synchronizing OpenMCT Timer.`);
-                                                    if (supervisorCommand === "start") {
-                                                        controlOpenMCTTimer('timer.start');
-                                                    } else if (supervisorCommand === "stop") {
-                                                        controlOpenMCTTimer('timer.pause');
-                                                    } else if (supervisorCommand === "reset") {
-                                                        controlOpenMCTTimer('timer.stop');
-                                                    }
-                                                } else {
-                                                    console.error(`StartComboPlugin: ROS service call failed for "${supervisorCommand}". OpenMCT Timer state NOT changed. Supervisor might be in a state that cannot accept this command.`);
-                                                }
                                             }, (error) => {
-                                                console.error(`StartComboPlugin: ROS service call error for "${supervisorCommand}":`, error);
+                                                console.warn(`StartComboPlugin: ROS service call warning for "${supervisorCommand}" (Supervisor offline?):`, error);
                                             });
                                         } catch (error) {
-                                            console.error('StartComboPlugin: Error preparing or calling ROS service:', error);
+                                            console.warn('StartComboPlugin: Warning preparing or calling ROS service (Supervisor offline?):', error);
                                         }
                                     } else if (supervisorCommand) {
-                                        console.warn(`StartComboPlugin: ROS connection not ready or command is null. Supervisor command "${supervisorCommand}" not sent, OpenMCT Timer state NOT changed.`);
+                                        console.warn(`StartComboPlugin: ROS connection not ready or command is null. Service call for "${supervisorCommand}" skipped.`);
                                     }
                                 } else {
                                     console.log(`StartComboPlugin: Supervisor button click ignored: Not on Navigation tab (${activeTabIndex}).`);
@@ -324,8 +323,7 @@ window.StartComboPlugin = function StartComboPlugin() {
 
                                 if (activeTabIndex === NAVIGATION_TAB_INDEX) {
                                      if (!isSupervisorAlive) {
-                                         console.warn(`StartComboPlugin: Supervisor is not alive. Teleop command "${teleopCommandOnPress}" will not be sent.`);
-                                         return;
+                                         console.warn(`StartComboPlugin: Supervisor is not alive. Teleop command "${teleopCommandOnPress}" publishing in fallback mode.`);
                                      }
                                      if (teleopCommandOnPress && teleopCommandPublisher) {
                                           try {
@@ -353,15 +351,14 @@ window.StartComboPlugin = function StartComboPlugin() {
 
                                 if (activeTabIndex === NAVIGATION_TAB_INDEX) {
                                      if (!isSupervisorAlive) {
-                                         console.warn(`StartComboPlugin: Supervisor is not alive. Teleop command "${teleopCommandOnRelease}" will not be sent.`);
-                                         return;
+                                         console.warn(`StartComboPlugin: Supervisor is not alive. Teleop command "${teleopCommandOnRelease}" publishing in fallback mode.`);
                                      }
                                      if (teleopCommandOnRelease && teleopCommandPublisher) {
                                           try {
                                               const message = new ROSLIB.Message({ data: teleopCommandOnRelease });
                                               teleopCommandPublisher.publish(message);
                                               console.log(`StartComboPlugin: Published teleop command on mouseup: "${teleopCommandOnRelease}" to /teleop_command.`);
-                                          } catch (error) { console.error(`StartComboPlugin: Error publishing teleop command "${teleopCommandOnRelease}" on mouseup:`, error); error }
+                                          } catch (error) { console.error(`StartComboPlugin: Error publishing teleop command "${teleopCommandOnRelease}" on mouseup:`, error); }
                                      } else if (teleopCommandOnRelease) {
                                           console.warn(`StartComboPlugin: Teleop command publisher not ready or command is null. Teleop command "${teleopCommandOnRelease}" not sent on mouseup.`);
                                      }

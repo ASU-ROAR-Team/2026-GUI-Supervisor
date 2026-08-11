@@ -114,9 +114,11 @@
         // ─── Publish geometry_msgs/Twist over WS ────────────────────────────
 
         publishTwist(normalizedX, normalizedY) {
-            // Block if disconnected or in autonomous navigation
+            // Block only if disconnected
             if (!this.wsConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-            if (this.currentRoverState.active_mission.toLowerCase() === 'navigation') return;
+            if (this.currentRoverState.active_mission.toLowerCase() === 'navigation') {
+                console.warn('[JoystickView] Warning: Driving joystick while Navigation mission is active.');
+            }
 
             const maxLinear  = parseFloat(this.linearSpeedSlider?.value  ?? 1.0);
             const maxAngular = parseFloat(this.angularSpeedSlider?.value ?? 0.5);
@@ -213,10 +215,10 @@
 
         onMouseDown(event) {
             if (this.currentRoverState.active_mission.toLowerCase() === 'navigation') {
+                console.warn('[JoystickView] Warning: Joystick operated during Navigation mission.');
                 if (this.openmct?.notifications) {
-                    this.openmct.notifications.warn('Joystick is disabled during Navigation mission.');
+                    this.openmct.notifications.warn('Warning: Joystick operated during Navigation mission.');
                 }
-                return;
             }
             this.isDragging        = true;
             this.canvas.style.cursor = 'grabbing';
@@ -275,11 +277,11 @@
             this.ctx.fill();
 
             // Thumb
-            const isBlocked = this.currentRoverState.active_mission.toLowerCase() === 'navigation';
+            const isNavigation = this.currentRoverState.active_mission.toLowerCase() === 'navigation';
             this.ctx.beginPath();
             this.ctx.arc(this.thumbX, this.thumbY, this.thumbRadius, 0, Math.PI * 2);
-            this.ctx.fillStyle   = isBlocked ? '#f84632' : '#4CAF50';
-            this.ctx.strokeStyle = isBlocked ? '#E53935' : '#388E3C';
+            this.ctx.fillStyle   = isNavigation ? '#ff9800' : '#4CAF50';
+            this.ctx.strokeStyle = isNavigation ? '#f57c00' : '#388E3C';
             this.ctx.fill();
             this.ctx.lineWidth   = 2;
             this.ctx.stroke();
@@ -300,7 +302,7 @@
 
         updateJoystickUIState() {
             const isNavigation = this.currentRoverState.active_mission.toLowerCase() === 'navigation';
-            const isActive     = this.wsConnected && !isNavigation;
+            const isActive     = this.wsConnected;
 
             this.drawJoystick();
 
@@ -308,12 +310,12 @@
                 if (!this.wsConnected) {
                     this.joystickStatus.textContent = 'Disconnected';
                     this.joystickStatus.className   = 'joystick-status error';
-                } else if (isActive) {
-                    this.joystickStatus.textContent = 'Joystick Active';
+                } else if (isNavigation) {
+                    this.joystickStatus.textContent = 'Joystick Active (Navigation Warning)';
                     this.joystickStatus.className   = 'joystick-status connected';
                 } else {
-                    this.joystickStatus.textContent = `Inactive — Navigation mission running`;
-                    this.joystickStatus.className   = 'joystick-status error';
+                    this.joystickStatus.textContent = 'Joystick Active';
+                    this.joystickStatus.className   = 'joystick-status connected';
                 }
             }
 
@@ -322,10 +324,8 @@
 
             if (this.joystickControlMsg) {
                 this.joystickControlMsg.textContent = isActive
-                    ? 'Use the joystick to control rover movement.'
-                    : isNavigation
-                        ? "Joystick disabled during 'Navigation' mission."
-                        : 'Waiting for WS connection...';
+                    ? (isNavigation ? "Use joystick to drive (Warning: Navigation mission running)." : "Use the joystick to control rover movement.")
+                    : 'Waiting for WS connection...';
                 this.joystickControlMsg.style.color = isActive ? '' : 'var(--color-error)';
             }
         }

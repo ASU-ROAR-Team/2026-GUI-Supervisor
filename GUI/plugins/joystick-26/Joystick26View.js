@@ -112,8 +112,11 @@
         }
 
     publishTwist(normalizedX, normalizedY) {
+    if (!this.wsConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
     const hasMission = this.currentRoverState.active_mission && this.currentRoverState.active_mission.trim() !== '';
-    if (!hasMission || !this.wsConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    if (!hasMission) {
+        console.warn('[Joystick26View] Warning: No active mission/supervisor. Publishing twist in fallback mode.');
+    }
 
     const maxLinear  = parseFloat(this.linearSpeedSlider?.value  ?? 1.0);
     const maxAngular = parseFloat(this.angularSpeedSlider?.value ?? 0.5);
@@ -201,7 +204,9 @@
 
         onMouseDown(event) {
             const hasMission = this.currentRoverState.active_mission && this.currentRoverState.active_mission.trim() !== '';
-            if (!hasMission) return;
+            if (!hasMission) {
+                console.warn('[Joystick26View] Warning: Driving joystick without active mission/supervisor (fallback mode).');
+            }
 
             this.isDragging        = true;
             this.canvas.style.cursor = 'grabbing';
@@ -262,8 +267,8 @@
             const hasMission = this.currentRoverState.active_mission && this.currentRoverState.active_mission.trim() !== '';
             this.ctx.beginPath();
             this.ctx.arc(this.thumbX, this.thumbY, this.thumbRadius, 0, Math.PI * 2);
-            this.ctx.fillStyle   = hasMission ? '#4CAF50' : '#f84632';
-            this.ctx.strokeStyle = hasMission ? '#388E3C' : '#E53935';
+            this.ctx.fillStyle   = hasMission ? '#4CAF50' : '#ff9800';
+            this.ctx.strokeStyle = hasMission ? '#388E3C' : '#f57c00';
             this.ctx.fill();
             this.ctx.lineWidth   = 2;
             this.ctx.stroke();
@@ -280,7 +285,7 @@
 
         updateJoystickUIState() {
             const hasMission = this.currentRoverState.active_mission && this.currentRoverState.active_mission.trim() !== '';
-            const isActive   = this.wsConnected && hasMission;
+            const isActive   = this.wsConnected;
 
             this.drawJoystick();
 
@@ -292,8 +297,8 @@
                     this.joystickStatus.textContent = `Active (${this.currentRoverState.active_mission})`;
                     this.joystickStatus.className   = 'joystick-status connected';
                 } else {
-                    this.joystickStatus.textContent = 'Disabled — No Active Mission';
-                    this.joystickStatus.className   = 'joystick-status error';
+                    this.joystickStatus.textContent = 'Active — Fallback Mode (No Supervisor)';
+                    this.joystickStatus.className   = 'joystick-status connected';
                 }
             }
 
@@ -302,8 +307,8 @@
 
             if (this.joystickControlMsg) {
                 this.joystickControlMsg.textContent = isActive
-                    ? 'Use joystick to drive.'
-                    : 'Joystick controls locked (Requires active mission).';
+                    ? (hasMission ? 'Use joystick to drive.' : 'Use joystick to drive (Supervisor Warning: No active mission).')
+                    : 'Joystick controls disconnected.';
             }
         }
 

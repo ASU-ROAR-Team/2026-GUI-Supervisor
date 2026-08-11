@@ -139,18 +139,16 @@
         // UPDATED: Now sends Float64MultiArray [direction, auger, speed, stop]
 
         publishDrillingCommand() {
-            // Allow manual controls during any active mission (teleoperation, drilling, etc.)
-            if (!this.currentRoverState.active_mission || this.currentRoverState.active_mission.trim() === '') {
-                console.warn('No active mission. Command not sent.');
-                if (this.openmct && this.openmct.notifications) {
-                    this.openmct.notifications.warn('Manual controls require an active mission.');
-                }
-                return;
-            }
-
             if (!this.wsConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
                 console.warn('[DrillingControlView] WS not connected. Command not sent.');
                 return;
+            }
+
+            if (!this.currentRoverState.active_mission || this.currentRoverState.active_mission.trim() === '') {
+                console.warn('[DrillingControlView] Warning: No active mission. Publishing drilling command in fallback mode.');
+                if (this.openmct && this.openmct.notifications) {
+                    this.openmct.notifications.warn('Manual control warning: Operating without active supervisor/mission.');
+                }
             }
 
             // Payload: [direction, auger, gate, speed, stop]
@@ -548,8 +546,8 @@
         }
 
         updateManualControlUIState() {
-            // Enable manual controls if there's any active mission (not just teleoperation)
-            const enabled = this.currentRoverState.active_mission && this.currentRoverState.active_mission.trim() !== '';
+            const enabled = this.wsConnected;
+            const hasMission = this.currentRoverState.active_mission && this.currentRoverState.active_mission.trim() !== '';
 
             [this.platformUpButton, this.platformDownButton, this.platformStopButton].forEach(btn => {
                 if (!btn) return;
@@ -572,12 +570,12 @@
 
             const note = this.element.querySelector('.drilling-control-section p');
             if (note) {
-                if (enabled) {
+                if (hasMission) {
                     note.textContent  = `These controls are active in ${this.currentRoverState.active_mission} mode.`;
                     note.style.color  = '#666';
                 } else {
-                    note.textContent  = `Manual controls disabled. No active mission.`;
-                    note.style.color  = '#e74c3c';
+                    note.textContent  = `Manual controls active (Supervisor Warning: No Active Mission).`;
+                    note.style.color  = '#e67e22';
                 }
             }
         }

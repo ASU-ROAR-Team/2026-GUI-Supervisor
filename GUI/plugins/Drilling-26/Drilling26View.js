@@ -134,8 +134,10 @@
         }
 
         publishDrillingCommand() {
-            if (!this.currentRoverState.active_mission || this.currentRoverState.active_mission.trim() === '') return;
             if (!this.wsConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+            if (!this.currentRoverState.active_mission || this.currentRoverState.active_mission.trim() === '') {
+                console.warn('[Drilling26View] Warning: Publishing drilling command without active mission/supervisor.');
+            }
 
             const payload = {
                 type: 'drilling_cmd',
@@ -642,7 +644,8 @@
         }
 
         updateManualControlUIState() {
-            const enabled = this.currentRoverState.active_mission && this.currentRoverState.active_mission.trim() !== '';
+            const enabled = this.wsConnected;
+            const hasMission = this.currentRoverState.active_mission && this.currentRoverState.active_mission.trim() !== '';
 
             [this.platformUpButton, this.platformDownButton, this.platformStopButton].forEach(btn => {
                 if (btn) {
@@ -668,6 +671,17 @@
                     if (container) container.classList.toggle('disabled', !enabled);
                 }
             });
+
+            const note = this.element.querySelector('.drilling-control-section p');
+            if (note) {
+                if (hasMission) {
+                    note.textContent = `These controls are active in ${this.currentRoverState.active_mission} mode.`;
+                    note.style.color = '#666';
+                } else {
+                    note.textContent = `Manual controls active (Supervisor Warning: No Active Mission).`;
+                    note.style.color = '#e67e22';
+                }
+            }
         }
 
         destroy() {
