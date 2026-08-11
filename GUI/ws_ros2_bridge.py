@@ -20,7 +20,7 @@ import json
 import asyncio
 import threading
 import base64
-import websockets
+import hashlib
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 
 PORT = 8080
@@ -85,24 +85,116 @@ class WSROS2Bridge(Node):
         self.loop.run_until_complete(self._ws_server())
 
     async def _ws_server(self):
-        async with websockets.serve(self._handler, "0.0.0.0", PORT):
-            self.get_logger().info(f"WebSocket server running on ws://0.0.0.0:{PORT}")
-            await asyncio.Future()
+        server = await asyncio.start_server(self._tcp_handler, '0.0.0.0', PORT)
+        self.get_logger().info(f'WebSocket server running on ws://0.0.0.0:{PORT}')
+        async with server:
+            await server.serve_forever()
 
-    async def _handler(self, websocket, path='', *args, **kwargs):
-        self.ws_clients.add(websocket)
-        remote_addr = getattr(websocket, 'remote_address', 'unknown')
-        self.get_logger().info(f"Client connected: {remote_addr}")
+    async def _tcp_handler(self, reader, writer):
+        """Perform WebSocket handshake then relay frames."""
+        client_id = id(writer)
         try:
-            async for message in websocket:
-                await self._handle_message(message)
-        except websockets.exceptions.ConnectionClosed:
+            # Read the HTTP upgrade request
+            headers_raw = b''
+            while b'\r\n\r\n' not in headers_raw:
+                chunk = await asyncio.wait_for(reader.read(4096), timeout=10)
+                if not chunk:
+                    writer.close()
+                    return
+                headers_raw += chunk
+
+            headers_text = headers_raw.split(b'\r\n\r\n', 1)[0].decode('utf-8', errors='replace')
+            headers = {}
+            for line in headers_text.split('\r\n')[1:]:
+                if ':' in line:
+                    k, v = line.split(':', 1)
+                    headers[k.strip().lower()] = v.strip()
+
+            ws_key = headers.get('sec-websocket-key', '')
+            if not ws_key:
+                writer.write(b'HTTP/1.1 400 Bad Request\r\n\r\n')
+                await writer.drain()
+                writer.close()
+                return
+
+            # Send 101 Switching Protocols
+            accept = base64.b64encode(
+                hashlib.sha1((ws_key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()).digest()
+            ).decode()
+            writer.write((
+                'HTTP/1.1 101 Switching Protocols\r\n'
+                'Upgrade: websocket\r\nConnection: Upgrade\r\n'
+                f'Sec-WebSocket-Accept: {accept}\r\n\r\n'
+            ).encode())
+            await writer.drain()
+
+            self.ws_clients.add(writer)
+            self.get_logger().info(f'WS client connected ({client_id})')
+
+            # Frame reader loop
+            buf = b''
+            while True:
+                chunk = await reader.read(4096)
+                if not chunk:
+                    break
+                buf += chunk
+                while len(buf) >= 2:
+                    opcode = buf[0] & 0x0F
+                    masked = (buf[1] & 0x80) != 0
+                    payload_len = buf[1] & 0x7F
+                    idx = 2
+                    if payload_len == 126:
+                        if len(buf) < 4: break
+                        payload_len = int.from_bytes(buf[2:4], 'big')
+                        idx = 4
+                    elif payload_len == 127:
+                        if len(buf) < 10: break
+                        payload_len = int.from_bytes(buf[2:10], 'big')
+                        idx = 10
+                    if masked:
+                        if len(buf) < idx + 4 + payload_len: break
+                        mask = buf[idx:idx+4]
+                        idx += 4
+                        data = bytes(b ^ mask[i % 4] for i, b in enumerate(buf[idx:idx+payload_len]))
+                    else:
+                        if len(buf) < idx + payload_len: break
+                        data = buf[idx:idx+payload_len]
+                    buf = buf[idx+payload_len:]
+
+                    if opcode == 8:   # close frame
+                        writer.write(b'\x88\x00')
+                        await writer.drain()
+                        return
+                    elif opcode == 9:  # ping -> pong
+                        pong = bytes([0x8a, len(data)]) + data
+                        writer.write(pong)
+                        await writer.drain()
+                    elif opcode in (1, 2):  # text or binary
+                        await self._handle_message(data.decode('utf-8', errors='replace'))
+
+        except (asyncio.IncompleteReadError, ConnectionResetError, BrokenPipeError):
             pass
         except Exception as e:
-            self.get_logger().error(f"WebSocket client error: {e}")
+            self.get_logger().error(f'WS client error ({client_id}): {e}')
         finally:
-            self.ws_clients.discard(websocket)
-            self.get_logger().info(f"Client disconnected: {remote_addr}")
+            self.ws_clients.discard(writer)
+            try:
+                writer.close()
+            except Exception:
+                pass
+            self.get_logger().info(f'WS client disconnected ({client_id})')
+
+    @staticmethod
+    def _make_frame(message: str) -> bytes:
+        payload = message.encode('utf-8')
+        n = len(payload)
+        if n <= 125:
+            header = bytes([0x81, n])
+        elif n <= 65535:
+            header = bytes([0x81, 126]) + n.to_bytes(2, 'big')
+        else:
+            header = bytes([0x81, 127]) + n.to_bytes(8, 'big')
+        return header + payload
 
     async def _handle_message(self, message):
         try:
@@ -216,12 +308,14 @@ class WSROS2Bridge(Node):
         asyncio.run_coroutine_threadsafe(self._broadcast(payload), self.loop)
 
     async def _broadcast(self, payload: str):
+        frame = self._make_frame(payload)
         dead = set()
-        for client in self.ws_clients:
+        for writer in list(self.ws_clients):
             try:
-                await client.send(payload)
+                writer.write(frame)
+                await writer.drain()
             except Exception:
-                dead.add(client)
+                dead.add(writer)
         self.ws_clients -= dead
 
     def rover_status_cb(self, msg):
