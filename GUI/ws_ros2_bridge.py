@@ -89,17 +89,20 @@ class WSROS2Bridge(Node):
             self.get_logger().info(f"WebSocket server running on ws://0.0.0.0:{PORT}")
             await asyncio.Future()
 
-    async def _handler(self, websocket):
+    async def _handler(self, websocket, *args, **kwargs):
         self.ws_clients.add(websocket)
-        self.get_logger().info(f"Client connected: {websocket.remote_address}")
+        remote_addr = getattr(websocket, 'remote_address', 'unknown')
+        self.get_logger().info(f"Client connected: {remote_addr}")
         try:
             async for message in websocket:
                 await self._handle_message(message)
         except websockets.exceptions.ConnectionClosed:
             pass
+        except Exception as e:
+            self.get_logger().error(f"WebSocket client error: {e}")
         finally:
             self.ws_clients.discard(websocket)
-            self.get_logger().info(f"Client disconnected: {websocket.remote_address}")
+            self.get_logger().info(f"Client disconnected: {remote_addr}")
 
     async def _handle_message(self, message):
         try:
