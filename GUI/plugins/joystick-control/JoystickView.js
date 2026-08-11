@@ -217,7 +217,8 @@
             if (this.currentRoverState.active_mission.toLowerCase() === 'navigation') {
                 console.warn('[JoystickView] Warning: Joystick operated during Navigation mission.');
                 if (this.openmct?.notifications) {
-                    this.openmct.notifications.warn('Warning: Joystick operated during Navigation mission.');
+                    const notify = this.openmct.notifications.alert || this.openmct.notifications.info || console.warn;
+                    notify.call(this.openmct.notifications, 'Warning: Joystick operated during Navigation mission.');
                 }
             }
             this.isDragging        = true;

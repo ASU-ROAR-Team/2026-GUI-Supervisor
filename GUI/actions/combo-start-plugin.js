@@ -91,7 +91,8 @@ window.StartComboPlugin = function StartComboPlugin() {
             if (!isSupervisorAlive) {
                 console.warn('StartComboPlugin: Supervisor is not alive. Operating timer in fallback mode without resetting.');
                 if (openmct && openmct.notifications) {
-                    openmct.notifications.warn('Supervisor node is offline or unresponsive. Operating in fallback mode.');
+                    const notify = openmct.notifications.alert || openmct.notifications.info || console.warn;
+                    notify.call(openmct.notifications, 'Supervisor node is offline or unresponsive. Operating in fallback mode.');
                 }
             } else {
                 console.log('StartComboPlugin: Supervisor is alive. Allowing button commands to control OpenMCT Timer.');
@@ -270,7 +271,8 @@ window.StartComboPlugin = function StartComboPlugin() {
                                     if (!isSupervisorAlive) {
                                         console.warn(`StartComboPlugin: Supervisor is not alive. Command "${supervisorCommand}" proceeding in fallback mode.`);
                                         if (capturedOpenmctForView && capturedOpenmctForView.notifications) {
-                                            capturedOpenmctForView.notifications.warn(`Supervisor offline. Command "${supervisorCommand}" executed in fallback mode.`);
+                                            const notify = capturedOpenmctForView.notifications.alert || capturedOpenmctForView.notifications.info || console.warn;
+                                            notify.call(capturedOpenmctForView.notifications, `Supervisor offline. Command "${supervisorCommand}" executed in fallback mode.`);
                                         }
                                     }
 

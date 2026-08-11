@@ -147,7 +147,8 @@
             if (!this.currentRoverState.active_mission || this.currentRoverState.active_mission.trim() === '') {
                 console.warn('[DrillingControlView] Warning: No active mission. Publishing drilling command in fallback mode.');
                 if (this.openmct && this.openmct.notifications) {
-                    this.openmct.notifications.warn('Manual control warning: Operating without active supervisor/mission.');
+                    const notify = this.openmct.notifications.alert || this.openmct.notifications.info || console.warn;
+                    notify.call(this.openmct.notifications, 'Manual control warning: Operating without active supervisor/mission.');
                 }
             }
 
@@ -270,7 +271,8 @@
         takeWebcamSnapshot() {
             if (!this.webcamImageElement || !this.webcamImageElement.src) {
                 if (this.openmct && this.openmct.notifications) {
-                    this.openmct.notifications.warn('Webcam feed not available.');
+                    const notify = this.openmct.notifications.alert || this.openmct.notifications.info || console.warn;
+                    notify.call(this.openmct.notifications, 'Webcam feed not available.');
                 }
                 return;
             }
