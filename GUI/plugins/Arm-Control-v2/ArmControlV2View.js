@@ -3,7 +3,7 @@
     'use strict';
 
     class ArmControlV2View {
-        constructor(container, openmct, wsUrl = `ws://${window.location.hostname || 'localhost'}:8080`) {
+        constructor(container, openmct, wsUrl = `ws://localhost:8081`) {
             this.container = container;
             this.openmct   = openmct;
             this.wsUrl     = wsUrl;
@@ -524,7 +524,7 @@
                 return;
             }
 
-            this.ros = new ROSLIB.Ros({ url: `ws://${window.location.hostname || 'localhost'}:8080` });
+            this.ros = new ROSLIB.Ros({ url: `ws://localhost:8081` });
             this.ros.on('connection', () => { console.log("[ArmControlV2View] ROSLIB connected"); this.setupROS(); });
             this.ros.on('error',      (e) => console.error("[ArmControlV2View] ROSLIB error", e));
             this.ros.on('close',      ()  => console.warn("[ArmControlV2View] ROSLIB closed"));

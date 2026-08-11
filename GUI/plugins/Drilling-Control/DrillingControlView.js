@@ -77,7 +77,7 @@
             if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
 
             const wsHost = window.location.hostname || "localhost";
-            this.ws = new WebSocket(`ws://${wsHost}:8080`);
+            this.ws = new WebSocket(`ws://localhost:8081`);
 
             this.ws.onopen = () => {
                 console.log("[DrillingControlView] Connected to WS bridge");
