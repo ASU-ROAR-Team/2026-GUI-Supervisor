@@ -641,6 +641,8 @@
                 this.rosStatus.classList.toggle('connected', connected);
                 this.rosStatus.classList.toggle('error',     !connected);
             }
+            // Re-evaluate manual control button state whenever connection changes
+            this.updateManualControlUIState();
         }
 
         updateManualControlUIState() {
@@ -674,11 +676,14 @@
 
             const note = this.element.querySelector('.drilling-control-section p');
             if (note) {
-                if (hasMission) {
-                    note.textContent = `These controls are active in ${this.currentRoverState.active_mission} mode.`;
-                    note.style.color = '#666';
+                if (!enabled) {
+                    note.textContent = 'Manual controls disabled: Not connected to bridge.';
+                    note.style.color = '#e74c3c';
+                } else if (hasMission) {
+                    note.textContent = `Controls active in ${this.currentRoverState.active_mission} mode.`;
+                    note.style.color = '#27ae60';
                 } else {
-                    note.textContent = `Manual controls active (Supervisor Warning: No Active Mission).`;
+                    note.textContent = '⚠️ No supervisor active — manual controls enabled in fallback mode.';
                     note.style.color = '#e67e22';
                 }
             }
