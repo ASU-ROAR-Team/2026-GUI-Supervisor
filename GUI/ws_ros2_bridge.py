@@ -89,7 +89,7 @@ class WSROS2Bridge(Node):
             self.get_logger().info(f"WebSocket server running on ws://0.0.0.0:{PORT}")
             await asyncio.Future()
 
-    async def _handler(self, websocket, *args, **kwargs):
+    async def _handler(self, websocket, path='', *args, **kwargs):
         self.ws_clients.add(websocket)
         remote_addr = getattr(websocket, 'remote_address', 'unknown')
         self.get_logger().info(f"Client connected: {remote_addr}")
