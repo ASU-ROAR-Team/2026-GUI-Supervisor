@@ -7,6 +7,20 @@
         Not Connected to ROS
     </div>
 
+    <div class="speed-controls">
+        <div class="speed-slider-group">
+            <label for="linearSpeed">Max Linear Speed:</label>
+            <input type="range" id="linearSpeed" min="0" max="60" step="0.1" value="1.0">
+            <span id="linearSpeedValue" class="speed-value">1.0</span> m/s
+        </div>
+
+        <div class="speed-slider-group">
+            <label for="angularSpeed">Max Angular Speed:</label>
+            <input type="range" id="angularSpeed" min="0" max="60" step="0.1" value="0.5">
+            <span id="angularSpeedValue" class="speed-value">0.5</span> rad/s
+        </div>
+    </div>
+
     <!-- NEW: Live Telemetry Display for Rover Feedback -->
     <div class="drilling-control-section" id="rover-telemetry-section" style="width: 95%; max-width: 280px; padding: 10px; background: var(--background-color--lvl2); border-radius: 6px;">
         <h3 style="margin: 0 0 8px 0; font-size: 0.9em; text-align: center;">Rover Telemetry</h3>

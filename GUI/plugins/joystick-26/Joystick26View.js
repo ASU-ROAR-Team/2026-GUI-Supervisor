@@ -115,8 +115,8 @@
     const hasMission = this.currentRoverState.active_mission && this.currentRoverState.active_mission.trim() !== '';
     if (!hasMission || !this.wsConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
-    const maxLinear  = parseFloat(this.linearSpeedSlider?.value  ?? 1.0);
-    const maxAngular = parseFloat(this.angularSpeedSlider?.value ?? 0.5);
+    const maxLinear  = parseFloat((this.linearSpeedSliders && this.linearSpeedSliders[0]) ? this.linearSpeedSliders[0].value : 1.0);
+    const maxAngular = parseFloat((this.angularSpeedSliders && this.angularSpeedSliders[0]) ? this.angularSpeedSliders[0].value : 0.5);
     
     // Read rover dimensions from GUI parameters
     const width  = parseFloat(this.roverWidthInput?.value  ?? 0.5); // Track width (distance between wheels)
@@ -147,10 +147,10 @@
         initializeUI() {
             this.canvas             = this.element.querySelector('#joystickCanvas');
             this.ctx                = this.canvas.getContext('2d');
-            this.linearSpeedSlider     = this.element.querySelector('#linearSpeed');
-            this.angularSpeedSlider    = this.element.querySelector('#angularSpeed');
-            this.linearSpeedValueSpan  = this.element.querySelector('#linearSpeedValue');
-            this.angularSpeedValueSpan = this.element.querySelector('#angularSpeedValue');
+            this.linearSpeedSliders    = Array.from(this.element.querySelectorAll('#linearSpeed'));
+            this.angularSpeedSliders   = Array.from(this.element.querySelectorAll('#angularSpeed'));
+            this.linearSpeedValueSpans = Array.from(this.element.querySelectorAll('#linearSpeedValue'));
+            this.angularSpeedValueSpans= Array.from(this.element.querySelectorAll('#angularSpeedValue'));
             this.joystickStatus        = this.element.querySelector('#joystickStatus');
             this.joystickControlMsg    = this.element.querySelector('#joystickControlMessage');
             this.telemetryLinearVel    = this.element.querySelector('#telemetryLinearVel');
@@ -188,8 +188,8 @@
             }, { passive: false });
             document.addEventListener('touchend',    this.onMouseUp);
 
-            this.linearSpeedSlider?.addEventListener('input',  this.updateSpeedValues);
-            this.angularSpeedSlider?.addEventListener('input', this.updateSpeedValues);
+            this.linearSpeedSliders?.forEach(s => s.addEventListener('input',  this.updateSpeedValues));
+            this.angularSpeedSliders?.forEach(s => s.addEventListener('input', this.updateSpeedValues));
         }
 
         removeEventListeners() {
@@ -269,12 +269,22 @@
             this.ctx.stroke();
         }
 
-        updateSpeedValues() {
-            if (this.linearSpeedValueSpan && this.linearSpeedSlider) {
-                this.linearSpeedValueSpan.textContent = parseFloat(this.linearSpeedSlider.value).toFixed(1);
-            }
-            if (this.angularSpeedValueSpan && this.angularSpeedSlider) {
-                this.angularSpeedValueSpan.textContent = parseFloat(this.angularSpeedSlider.value).toFixed(1);
+        updateSpeedValues(event) {
+            if (event && event.target) {
+                const target = event.target;
+                const val = target.value;
+                if (target.id === 'linearSpeed') {
+                    this.linearSpeedSliders?.forEach(s => s.value = val);
+                    this.linearSpeedValueSpans?.forEach(sp => sp.textContent = parseFloat(val).toFixed(1));
+                } else if (target.id === 'angularSpeed') {
+                    this.angularSpeedSliders?.forEach(s => s.value = val);
+                    this.angularSpeedValueSpans?.forEach(sp => sp.textContent = parseFloat(val).toFixed(1));
+                }
+            } else {
+                const linVal = this.linearSpeedSliders[0]?.value ?? 1.0;
+                const angVal = this.angularSpeedSliders[0]?.value ?? 0.5;
+                this.linearSpeedValueSpans?.forEach(sp => sp.textContent = parseFloat(linVal).toFixed(1));
+                this.angularSpeedValueSpans?.forEach(sp => sp.textContent = parseFloat(angVal).toFixed(1));
             }
         }
 
@@ -297,8 +307,8 @@
                 }
             }
 
-            if (this.linearSpeedSlider)  this.linearSpeedSlider.disabled  = !isActive;
-            if (this.angularSpeedSlider) this.angularSpeedSlider.disabled = !isActive;
+            this.linearSpeedSliders?.forEach(s => s.disabled  = !isActive);
+            this.angularSpeedSliders?.forEach(s => s.disabled = !isActive);
 
             if (this.joystickControlMsg) {
                 this.joystickControlMsg.textContent = isActive
