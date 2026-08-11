@@ -93,9 +93,17 @@
           openmct.install(openmct.plugins.Espresso());
           console.log('Open MCT started with Espresso theme (dark mode).');
       }
-      openmct.time.clock('local', {start: -15 * 60 * 1000, end: 0});
+      if (typeof openmct.time.setClock === 'function') {
+          openmct.time.setClock('local', {start: -15 * 60 * 1000, end: 0});
+      } else {
+          openmct.time.clock('local', {start: -15 * 60 * 1000, end: 0});
+      }
       openmct.time.setMode('realtime');
-      openmct.time.timeSystem('utc');
+      if (typeof openmct.time.setTimeSystem === 'function') {
+          openmct.time.setTimeSystem('utc');
+      } else {
+          openmct.time.timeSystem('utc');
+      }
 
       // Install all custom plugins
       openmct.install(window.StartComboPlugin());
