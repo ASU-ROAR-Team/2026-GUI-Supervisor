@@ -349,9 +349,10 @@
                             `;
 
                             cameraElement = element.querySelector('#singleCamImg');
+                            const wrapper = element.querySelector('.cam-single-wrapper');
                             if (cameraElement) {
                                 cameraElement.onerror = () => {
-                                    element.querySelector('.cam-single-wrapper').innerHTML = `<div style="color: #f87171; text-align: center; padding-top: 20px;">Unable to load camera stream from ${url}</div>`;
+                                    if (wrapper) wrapper.innerHTML = `<div style="color: #f87171; text-align: center; padding-top: 20px;">Unable to load camera stream from ${url}</div>`;
                                 };
                             }
                         },

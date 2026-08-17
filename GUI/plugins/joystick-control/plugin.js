@@ -70,7 +70,6 @@
                 appliesTo: function (domainObject) {
                     const matches = domainObject.identifier.namespace === JOYSTICK_CONTROL_KEY &&
                                     domainObject.identifier.key === JOYSTICK_ROOT_KEY;
-                    console.log('COMPOSITION PROVIDER 2 (Joystick Folder): Identifier ->', domainObject.identifier, '| Matches ->', matches);
                     return matches;
                 },
                 load: function (domainObject) {
