@@ -36,28 +36,28 @@ function TurtlebotPlugin() {
                 key: 'camera1',
                 topic: '/rover/camera1/image_raw',
                 position: 'front',
-                streamUrl: 'http://localhost:8081/stream_viewer?topic=/rover/camera1/image_raw/compressed&type=mjpeg&quality=medium'
+                streamUrl: `http://${rosHost}:8081/stream_viewer?topic=/rover/camera1/image_raw/compressed&type=mjpeg&quality=medium`
             },
             'camera2': {
                 name: 'Left Camera', 
                 key: 'camera2',
                 topic: '/rover/camera2/image_raw',
                 position: 'left',
-                streamUrl: 'http://localhost:8081/stream_viewer?topic=/rover/camera2/image_raw/compressed&type=mjpeg&quality=medium'
+                streamUrl: `http://${rosHost}:8081/stream_viewer?topic=/rover/camera2/image_raw/compressed&type=mjpeg&quality=medium`
             },
             'camera3': {
                 name: 'Right Camera',
                 key: 'camera3', 
                 topic: '/rover/camera3/image_raw',
                 position: 'right',
-                streamUrl: 'http://localhost:8081/stream_viewer?topic=/rover/camera3/image_raw/compressed&type=mjpeg&quality=medium'
+                streamUrl: `http://${rosHost}:8081/stream_viewer?topic=/rover/camera3/image_raw/compressed&type=mjpeg&quality=medium`
             },
             'camera4': {
                 name: 'Rear Camera',
                 key: 'camera4',
                 topic: '/rover/camera4/image_raw', 
                 position: 'rear',
-                streamUrl: 'http://localhost:8081/stream_viewer?topic=/rover/camera4/image_raw/compressed&type=mjpeg&quality=medium'
+                streamUrl: `http://${rosHost}:8081/stream_viewer?topic=/rover/camera4/image_raw/compressed&type=mjpeg&quality=medium`
             }
         };
 
@@ -288,7 +288,7 @@ function TurtlebotPlugin() {
                             const filename = `${domainObject.identifier.key}_${timestamp}.jpg`;
                             
                             // Create snapshot URL (high quality PNG)
-                            const snapshotUrl = `http://localhost:8081/snapshot?topic=${cameraConfig.topic}/compressed&quality=95&width=1280&height=720`;
+                            const snapshotUrl = `http://${rosHost}:8081/snapshot?topic=${cameraConfig.topic}/compressed&quality=95&width=1280&height=720`;
                             
                             // Trigger download
                             const link = document.createElement('a');

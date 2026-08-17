@@ -140,7 +140,7 @@ window.StartComboPlugin = function StartComboPlugin() {
                     handleSupervisorAlivenessForTimer(); // Ensure timer is reset if supervisor isn't publishing
                 } else {
                     rosConnection = new ROSLIB.Ros({
-                        url: `ws://localhost:8081` // Match your rosbridge_websocket URL
+                        url: `ws://${(window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost'}:8081` // Match your rosbridge_websocket URL
                     });
                     rosConnection.on('connection', () => {
                         console.log('StartComboPlugin: ROS Connected.');

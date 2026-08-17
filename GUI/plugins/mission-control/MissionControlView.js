@@ -23,7 +23,7 @@
         if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
 
         const wsHost = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
-        this.ws = new WebSocket(`ws://localhost:8081`);
+        this.ws = new WebSocket(`ws://${(window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost'}:8081`);
 
         this.ws.onopen = () => {
             console.log("MissionControlView: Connected to WS bridge");
@@ -201,8 +201,19 @@
     // ─── Status Updates ───────────────────────────────────────────────────────
 
     MissionControlView.prototype.updateRoverStatus = function (statusMessage) {
+        const prevState = this.currentState;
+        
         this.currentState  = statusMessage.rover_state    || 'UNKNOWN';
         this.activeMission = statusMessage.active_mission || 'None';
+        
+        if (this.currentState === 'RUNNING' && prevState !== 'RUNNING') {
+            this.addMessage(`Mission Started: ${this.activeMission}`, 'success');
+        } else if (this.currentState === 'IDLE' && prevState === 'RUNNING') {
+            this.addMessage(`Mission Stopped`, 'info');
+        } else if (this.currentState === 'ERROR' && prevState !== 'ERROR') {
+            this.addMessage(`Mission Error`, 'error');
+        }
+        
         this.updateStatusDisplay();
     };
 

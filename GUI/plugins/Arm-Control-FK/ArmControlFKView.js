@@ -3,11 +3,12 @@
     'use strict';
 
     class ArmControlFKView {
-        constructor(container, openmct, wsUrl = `ws://localhost:8081`) {
+        constructor(container, openmct, wsUrl = `ws://${(window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost'}:8081`) {
             this.container = container;
             this.openmct   = openmct;
             this.wsUrl     = wsUrl;
             this.mode = "FK";
+            this.liquidSamplingValue = 0;
 
             // FK state - UPDATED TO YOUR SPECIFIC TOPICS
             this.jointNames = ['j0', 'j1', 'j2', 'j3', 'diff_m1', 'diff_m2', 'gripper_servo'];
@@ -232,6 +233,15 @@
                 console.error("[ArmControlFKView] WebSocket error", err);
                 this.ws.close();
             };
+
+            // Start continuous IK publisher loop
+            if (!this.ikPublishInterval) {
+                this.ikPublishInterval = setInterval(() => {
+                    if (this.mode === 'IK') {
+                        this.sendUpdate();
+                    }
+                }, 100); // 10Hz
+            }
         }
 
         scheduleReconnect() {
@@ -251,7 +261,8 @@
                     getVal('j0'), getVal('j1'), 
                     getVal('j2'), getVal('j3'),
                     getVal('diff_m1') + getVal('diff_m2'),
-                    getVal('diff_m1') + getVal('diff_m2')
+                    getVal('diff_m1') + getVal('diff_m2'),
+                    this.liquidSamplingValue
                 ];
                 const gripperData = getVal('gripper_servo');
 
@@ -403,6 +414,15 @@
                                 <button id="cancelSavePresetBtn" style="background: #334155; color: #f1f5f9; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500;">Cancel</button>
                                 <button id="confirmSavePresetBtn" style="background: #2563eb; color: #fff; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">Save Location</button>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="preset-section" style="margin-top: 16px; margin-bottom: 16px; background: rgba(30, 41, 59, 0.4); border: 1px solid #334155; border-radius: 8px; padding: 14px;">
+                        <h4 style="margin-top: 0; color: #38bdf8; font-size: 0.95rem; margin-bottom: 10px;">Liquid Sampling</h4>
+                        <div style="display: flex; gap: 10px;">
+                            <button id="liquidSamplingNegBtn" style="flex: 1; padding: 10px; background: #eab308; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Reverse (-1)</button>
+                            <button id="liquidSamplingZeroBtn" style="flex: 1; padding: 10px; background: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Stop (0)</button>
+                            <button id="liquidSamplingPosBtn" style="flex: 1; padding: 10px; background: #22c55e; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Sample (+1)</button>
                         </div>
                     </div>
 
@@ -655,6 +675,23 @@
                 };
             }
 
+            // Liquid Sampling Controls
+            const btnNeg = this.container.querySelector('#liquidSamplingNegBtn');
+            const btnZero = this.container.querySelector('#liquidSamplingZeroBtn');
+            const btnPos = this.container.querySelector('#liquidSamplingPosBtn');
+            
+            const updateLiquidSamplingUI = () => {
+                if (btnNeg) btnNeg.style.opacity = this.liquidSamplingValue === -1 ? '1' : '0.5';
+                if (btnZero) btnZero.style.opacity = this.liquidSamplingValue === 0 ? '1' : '0.5';
+                if (btnPos) btnPos.style.opacity = this.liquidSamplingValue === 1 ? '1' : '0.5';
+            };
+            
+            if (btnNeg) btnNeg.onclick = () => { this.liquidSamplingValue = -1; updateLiquidSamplingUI(); this.sendUpdate(); };
+            if (btnZero) btnZero.onclick = () => { this.liquidSamplingValue = 0; updateLiquidSamplingUI(); this.sendUpdate(); };
+            if (btnPos) btnPos.onclick = () => { this.liquidSamplingValue = 1; updateLiquidSamplingUI(); this.sendUpdate(); };
+            
+            updateLiquidSamplingUI();
+
             // IK presets
             this.container.querySelector('#ikHomeBtn').onclick = () => this.applyIKPreset('home');
             this.container.querySelector('#ikRestBtn').onclick = () => this.applyIKPreset('rest');
@@ -776,7 +813,7 @@
                 return;
             }
 
-            this.ros = new ROSLIB.Ros({ url: `ws://localhost:8081` });
+            this.ros = new ROSLIB.Ros({ url: `ws://${(window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost'}:8081` });
             this.ros.on('connection', () => { this.setupROS(); });
             this.ros.on('error',      (e) => console.error("[ArmControlFKView] ROSLIB error", e));
         }
@@ -814,6 +851,7 @@
 
         destroy() {
             if (this.reconnectInterval) clearInterval(this.reconnectInterval);
+            if (this.ikPublishInterval) clearInterval(this.ikPublishInterval);
             if (this.ws)  this.ws.close();
             if (this.ros) this.ros.close();
 

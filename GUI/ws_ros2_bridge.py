@@ -50,7 +50,7 @@ class WSROS2Bridge(Node):
         self.wheel_duty_pub = self.create_publisher(Float32MultiArray, '/Wheel_Duty_Cycle', qos)
         
         # Publisher for individual wheel velocities: [right_wheel, left_wheel]
-        self.wheel_vel_pub = self.create_publisher(Float32MultiArray, '/rover/wheel_velocities_cmd', 10)
+        self.wheel_vel_pub = self.create_publisher(Float32MultiArray, '/Wheel_RadPerSec', 10)
 
         # ---------------- ROS2 Subscribers ----------------
         self.create_subscription(String, '/rover_status', self.rover_status_cb, 10)
@@ -269,13 +269,16 @@ class WSROS2Bridge(Node):
             elif msg_type == "joint_cmd_fk_custom":
                 arm_data = msg.get("arm_data", [])
                 gripper_data = msg.get("gripper_data", 0.0)
-                if len(arm_data) == 6:
+                if len(arm_data) >= 6:
                     arm_msg = Float32MultiArray()
                     arm_msg.data = [float(x) for x in arm_data]
                     self.fk_arm_pub.publish(arm_msg)
 
                     joint_msg = JointState()
-                    joint_msg.name = ['j0', 'j1', 'j2', 'j3', 'diff_m1', 'diff_m2', 'gripper_servo']
+                    if len(arm_data) == 7:
+                        joint_msg.name = ['j0', 'j1', 'j2', 'j3', 'diff_m1', 'diff_m2', 'liquid_sampling', 'gripper_servo']
+                    else:
+                        joint_msg.name = ['j0', 'j1', 'j2', 'j3', 'diff_m1', 'diff_m2', 'gripper_servo']
                     joint_msg.position = [float(x) for x in arm_data] + [float(gripper_data)]
                     joint_msg.effort = []
                     self.joint_pub.publish(joint_msg)
@@ -291,13 +294,13 @@ class WSROS2Bridge(Node):
                     motor_msg.data = [int(x) for x in data[:2]]
                     self.drilling_motors_pub.publish(motor_msg)
 
-            elif msg_type == "rover_wheel_vel_cmd":
+            elif msg_type == "wheel_rad_per_sec":
                 data = msg.get("data", [])
                 if len(data) >= 2:
                     wheel_msg = Float32MultiArray()
                     wheel_msg.data = [float(data[0]), float(data[1])]
                     self.wheel_vel_pub.publish(wheel_msg)
-                    self.get_logger().info(f"Wheel Velocities Cmd -> Right: {data[0]:.2f} m/s, Left: {data[1]:.2f} m/s")
+                    self.get_logger().info(f"Wheel Velocities Cmd -> Right: {data[0]:.2f} rad/s, Left: {data[1]:.2f} rad/s")
 
         except Exception as e:
             self.get_logger().error(f"Failed to handle WS message: {e}")

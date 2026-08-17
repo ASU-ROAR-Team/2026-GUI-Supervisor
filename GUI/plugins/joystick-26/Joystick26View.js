@@ -61,7 +61,7 @@
             if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
 
             const wsHost = window.location.hostname || "localhost";
-            this.ws = new WebSocket(`ws://localhost:8081`);
+            this.ws = new WebSocket(`ws://${(window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost'}:8081`);
 
             this.ws.onopen = () => {
                 this.wsConnected = true;
@@ -131,19 +131,10 @@
     const vRight = v + (omega * width / 2.0);
     const vLeft  = v - (omega * width / 2.0);
 
-    // Send both /cmd_vel and the explicit wheel velocities over the WebSocket
+    // Send the explicit wheel velocities over the WebSocket (maps to /Wheel_RadPerSec)
     this.ws.send(JSON.stringify({
-        type: 'rover_wheel_vel_cmd', // New message type for individual wheel speeds
-        data: [vRight, vLeft]         // [right_wheel_vel, left_wheel_vel]
-    }));
-
-    // Optionally keep sending standard Twist if navigation stack expects it
-    this.ws.send(JSON.stringify({
-        type: 'cmd_vel',
-        data: {
-            linear:  { x: v, y: 0.0, z: 0.0 },
-            angular: { x: 0.0, y: 0.0, z: omega }
-        }
+        type: 'wheel_rad_per_sec',
+        data: [vRight, vLeft]
     }));
 }
 
@@ -158,6 +149,8 @@
             this.joystickControlMsg    = this.element.querySelector('#joystickControlMessage');
             this.telemetryLinearVel    = this.element.querySelector('#telemetryLinearVel');
             this.telemetryAngularVel   = this.element.querySelector('#telemetryAngularVel');
+            this.linearMaxLimitInput   = this.element.querySelector('#linearMaxLimit');
+            this.angularMaxLimitInput  = this.element.querySelector('#angularMaxLimit');
             this.roverLengthInput = this.element.querySelector('#roverLength');
             this.roverWidthInput  = this.element.querySelector('#roverWidth');
 
@@ -193,6 +186,19 @@
 
             this.linearSpeedSlider?.addEventListener('input',  this.updateSpeedValues);
             this.angularSpeedSlider?.addEventListener('input', this.updateSpeedValues);
+
+            this.linearMaxLimitInput?.addEventListener('change', (e) => {
+                if (this.linearSpeedSlider) {
+                    this.linearSpeedSlider.max = e.target.value;
+                    this.updateSpeedValues();
+                }
+            });
+            this.angularMaxLimitInput?.addEventListener('change', (e) => {
+                if (this.angularSpeedSlider) {
+                    this.angularSpeedSlider.max = e.target.value;
+                    this.updateSpeedValues();
+                }
+            });
         }
 
         removeEventListeners() {
