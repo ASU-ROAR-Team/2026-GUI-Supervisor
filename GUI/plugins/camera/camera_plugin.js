@@ -371,11 +371,13 @@
                 view: (domainObject) => {
                     let viewElement = null;
                     return {
-                        show(element) {
+                        async show(element) {
                             viewElement = element;
                             const host = (window.getCameraHost ? window.getCameraHost() : window.location.hostname) || 'localhost';
-                            const camNums = [2, 4, 6, 8, 10];
-                            const camLabels = [
+
+                            // Fetch active cameras dynamically, fallback to defaults
+                            let camNums = [2, 4, 6, 8, 10];
+                            let camLabels = [
                                 "Cam 1 (Front - /dev/video2)",
                                 "Cam 2 (Left - /dev/video4)",
                                 "Cam 3 (Right - /dev/video6)",
@@ -383,13 +385,29 @@
                                 "Cam 5 (Arm/Tool - /dev/video10)"
                             ];
 
+                            try {
+                                const controller = new AbortController();
+                                const timeoutId = setTimeout(() => controller.abort(), 2000);
+                                const res = await fetch(`http://${host}:9090/api/cameras`, { signal: controller.signal });
+                                clearTimeout(timeoutId);
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    if (data.cameras && data.cameras.length > 0) {
+                                        camNums = data.cameras.map(c => parseInt(c.cam_num));
+                                        camLabels = data.cameras.map(c => `${c.name} (${c.dev})`);
+                                    }
+                                }
+                            } catch (e) {
+                                console.log('[CameraPlugin] Could not fetch dynamic camera list, using defaults.');
+                            }
+
                             element.innerHTML = `
                                 <div class="multi-cam-container">
                                     <div class="multi-cam-header">
                                         <h3>📹 Multi-Camera Real-Time Monitor</h3>
                                         <div style="display: flex; gap: 10px; align-items: center;">
                                             <button class="btn-ctrl-preset" style="background: #0284c7; border-color: #38bdf8; padding: 5px 14px; font-weight: 600;" onclick="window.captureMultiCamGrid('${host}')">📸 Capture Grid View</button>
-                                            <span class="multi-cam-badge">Host Laptop Webcam Excluded</span>
+                                            <span class="multi-cam-badge">${camNums.length} Camera(s) Active</span>
                                         </div>
                                     </div>
                                     ${getControlBarHTML(host)}
@@ -398,7 +416,7 @@
                                             <div class="cam-card">
                                                 <div class="cam-card-title" style="display: flex; justify-content: space-between; align-items: center;">
                                                     <span>${camLabels[i]}</span>
-                                                    <button class="btn-ctrl-preset" style="padding: 2px 8px; font-size: 0.75rem;" onclick="window.captureSingleCamFromGrid(${num}, '${camLabels[i]}', '${host}')">📸 Snap</button>
+                                                    <button class="btn-ctrl-preset" style="padding: 2px 8px; font-size: 0.75rem;" onclick="window.captureSingleCamFromGrid(${num}, '${camLabels[i].replace(/'/g, "\\'")}', '${host}')">📸 Snap</button>
                                                 </div>
                                                 <div class="cam-frame">
                                                     <img src="http://${host}:9090/api/stream/${num}" alt="${camLabels[i]}" 
