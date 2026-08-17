@@ -50,16 +50,10 @@
 
   <script>
     window.getRoarHost = function() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const paramHost = urlParams.get('host');
-      if (paramHost) {
-        localStorage.setItem('roar_host', paramHost);
-        return paramHost;
-      }
-      const savedHost = localStorage.getItem('roar_host');
-      if (savedHost && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-        return savedHost;
-      }
+      // The ROS 2 WebSocket bridge is ALWAYS co-located with the GUI server in the same container.
+      // Therefore, the host is always wherever the browser loaded the GUI from.
+      // Clear any stale local storage variables to prevent future connection issues.
+      localStorage.removeItem('roar_host');
       return window.location.hostname || 'localhost';
     };
 
