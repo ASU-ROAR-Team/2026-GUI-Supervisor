@@ -368,8 +368,10 @@
                 name: '5-Camera Grid View',
                 canView: (domainObject) => domainObject.type === MULTI_CAMERA_KEY,
                 view: (domainObject) => {
+                    let viewElement = null;
                     return {
                         show(element) {
+                            viewElement = element;
                             const host = window.location.hostname || 'localhost';
                             const camNums = [2, 4, 6, 8, 10];
                             const camLabels = [
@@ -493,7 +495,7 @@
                             `;
                         },
                         destroy() {
-                            element.innerHTML = '';
+                            if (viewElement) viewElement.innerHTML = '';
                         }
                     };
                 }
