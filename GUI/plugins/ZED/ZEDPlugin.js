@@ -93,7 +93,7 @@
                         if (ws && ws.readyState !== WebSocket.CLOSED) return;
 
                         const wsHost = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
-                        ws = new WebSocket(`ws://${(window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost'}:8081`);
+                        ws = new WebSocket(`ws://${(window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost'}:9091`);
 
                         ws.onopen = () => {
                             console.log('[ZEDPlugin] Connected to WS bridge');

@@ -3,7 +3,7 @@
     'use strict';
 
     class ArmControlView {
-        constructor(container, openmct, wsUrl = `ws://${(window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost'}:8081`) {
+        constructor(container, openmct, wsUrl = `ws://${(window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost'}:9091`) {
             this.container = container;
             this.openmct   = openmct;
             this.wsUrl     = wsUrl;
@@ -556,7 +556,7 @@
                 return;
             }
 
-            this.ros = new ROSLIB.Ros({ url: `ws://${(window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost'}:8081` });
+            this.ros = new ROSLIB.Ros({ url: `ws://${(window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost'}:9091` });
 
             this.ros.on('connection', () => {
                 console.log("[ArmControlView] ROSLIB connected");

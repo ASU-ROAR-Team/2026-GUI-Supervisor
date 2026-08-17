@@ -23,7 +23,7 @@
         if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
 
         const wsHost = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
-        this.ws = new WebSocket(`ws://${(window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost'}:8081`);
+        this.ws = new WebSocket(`ws://${wsHost}:9091`);
 
         this.ws.onopen = () => {
             console.log("MissionControlView: Connected to WS bridge");
