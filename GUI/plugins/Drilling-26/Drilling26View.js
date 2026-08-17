@@ -42,7 +42,7 @@
             this.LOCATION_DEBOUNCE_MS = 150;
 
             // Camera Host & Selection State
-            this.cameraHost = window.location.hostname || "localhost";
+            this.cameraHost = (window.getCameraHost ? window.getCameraHost() : window.location.hostname) || "localhost";
             this.selectedCamNum = "10"; // Default to Cam 5 (Arm/Tool)
 
             // Camera Control DOM refs

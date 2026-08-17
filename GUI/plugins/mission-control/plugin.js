@@ -11,9 +11,9 @@
     let cachedActiveCameras = null;
 
     async function fetchActiveCameras() {
-        const primaryHost = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
-        const hostsToTry = [primaryHost];
-        if (primaryHost !== 'localhost' && primaryHost !== '127.0.0.1') {
+        const camHost = (window.getCameraHost ? window.getCameraHost() : window.location.hostname) || 'localhost';
+        const hostsToTry = [camHost];
+        if (camHost !== 'localhost' && camHost !== '127.0.0.1') {
             hostsToTry.push('localhost');
         }
 
@@ -42,7 +42,7 @@
         return function install(openmct) {
             console.log('ROAR Supervisor Plugin: Installing...');
 
-            const host = (window.getRoarHost ? window.getRoarHost() : window.location.hostname) || 'localhost';
+            const host = (window.getCameraHost ? window.getCameraHost() : window.location.hostname) || 'localhost';
 
             // 1. Define mission control panel type
             openmct.types.addType(MISSION_CONTROL_KEY, {

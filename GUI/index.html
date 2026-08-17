@@ -63,6 +63,12 @@
       return window.location.hostname || 'localhost';
     };
 
+    // Camera server is ALWAYS co-located with the GUI (same container/machine).
+    // Never use getRoarHost() for camera URLs — that points to the rover's ROS bridge.
+    window.getCameraHost = function() {
+      return window.location.hostname || 'localhost';
+    };
+
     document.addEventListener('DOMContentLoaded', function () {
       openmct.setAssetPath('/node_modules/openmct/dist/');
       openmct.install(openmct.plugins.LocalStorage());
@@ -108,7 +114,7 @@
       // Install all custom plugins
       openmct.install(window.StartComboPlugin());
       openmct.install(window.CostmapMapPlugin({
-          defaultCostmapSourceUrl: 'http://' + window.getRoarHost() + ':8081/images/new_yard.png',
+          defaultCostmapSourceUrl: 'http://' + window.getCameraHost() + ':8081/images/new_yard.png',
           defaultPixelOffsetX: 70,
           defaultPixelOffsetY: 246,
           defaultPixelsPerMeter: 20,

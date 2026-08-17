@@ -328,7 +328,7 @@
 
                     return {
                         show(element) {
-                            const host = window.location.hostname || 'localhost';
+                            const host = (window.getCameraHost ? window.getCameraHost() : window.location.hostname) || 'localhost';
                             element.style.padding = '10px';
                             element.style.background = '#0f172a';
                             element.style.height = '100%';
@@ -373,7 +373,7 @@
                     return {
                         show(element) {
                             viewElement = element;
-                            const host = window.location.hostname || 'localhost';
+                            const host = (window.getCameraHost ? window.getCameraHost() : window.location.hostname) || 'localhost';
                             const camNums = [2, 4, 6, 8, 10];
                             const camLabels = [
                                 "Cam 1 (Front - /dev/video2)",
