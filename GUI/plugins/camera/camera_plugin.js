@@ -392,7 +392,7 @@
                                 clearTimeout(timeoutId);
                                 if (res.ok) {
                                     const data = await res.json();
-                                    if (data.cameras && data.cameras.length > 0) {
+                                    if (data.cameras && Array.isArray(data.cameras)) {
                                         camNums = data.cameras.map(c => parseInt(c.cam_num));
                                         camLabels = data.cameras.map(c => `${c.name} (${c.dev})`);
                                     }
@@ -412,7 +412,7 @@
                                     </div>
                                     ${getControlBarHTML(host)}
                                     <div class="multi-cam-grid">
-                                        ${camNums.map((num, i) => `
+                                        ${camNums.length === 0 ? '<div style="grid-column: 1 / -1; text-align: center; padding: 40px; background: #1e293b; border-radius: 8px; color: #94a3b8;">No cameras detected on the server. Please check hardware connections.</div>' : camNums.map((num, i) => `
                                             <div class="cam-card">
                                                 <div class="cam-card-title" style="display: flex; justify-content: space-between; align-items: center;">
                                                     <span>${camLabels[i]}</span>

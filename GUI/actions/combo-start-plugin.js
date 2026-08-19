@@ -90,10 +90,8 @@ window.StartComboPlugin = function StartComboPlugin() {
         function handleSupervisorAlivenessForTimer() {
             if (!isSupervisorAlive) {
                 console.warn('StartComboPlugin: Supervisor is not alive. Operating timer in fallback mode without resetting.');
-                if (openmct && openmct.notifications) {
-                    const notify = openmct.notifications.alert || openmct.notifications.info || console.warn;
-                    notify.call(openmct.notifications, 'Supervisor node is offline or unresponsive. Operating in fallback mode.');
-                }
+                // We do NOT show a notification here because it falsely triggers on initial ROS connection.
+                // Notifications for offline supervisor are handled when the user actually clicks a command button.
             } else {
                 console.log('StartComboPlugin: Supervisor is alive. Allowing button commands to control OpenMCT Timer.');
                 // No action here if supervisor is alive; timer state is managed by button clicks
