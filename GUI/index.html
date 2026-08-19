@@ -50,11 +50,10 @@
 
   <script>
     window.getRoarHost = function() {
-      // The ROS 2 WebSocket bridge is ALWAYS co-located with the GUI server in the same container.
-      // Therefore, the host is always wherever the browser loaded the GUI from.
-      // Clear any stale local storage variables to prevent future connection issues.
-      localStorage.removeItem('roar_host');
-      return window.location.hostname || 'localhost';
+        const host = window.location.hostname;
+        // TODO: Expose this IP as an environment variable in docker-compose-gui.yml
+        const jetsonOmadaIP = '192.168.0.100'; 
+        return host === 'localhost' ? jetsonOmadaIP : host;
     };
 
     // Camera server is ALWAYS co-located with the GUI (same container/machine).

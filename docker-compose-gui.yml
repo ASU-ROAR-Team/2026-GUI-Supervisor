@@ -1,0 +1,12 @@
+services:
+  gui_container:
+    build:
+      context: ./GUI
+    network_mode: host
+    container_name: gui_container
+    volumes:
+      - ./GUI:/app
+      - /app/node_modules
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: node server.js

@@ -1,0 +1,46 @@
+services:
+  supervisor:
+    build:
+      context: ./ROAR-Supervisor
+    network_mode: host
+    privileged: true
+    container_name: supervisor_container
+    volumes:
+      - /dev:/dev
+    environment:
+      - ROS_LOCALHOST_ONLY=${ROS_LOCALHOST_ONLY:-1}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - PYTHONUNBUFFERED=1
+    command: ros2 launch supervisor multi_launch.py
+
+  web_camera_server:
+    build:
+      context: ./GUI
+    network_mode: host
+    privileged: true
+    container_name: web_camera_server
+    volumes:
+      - ./GUI:/app
+      - /dev/video0:/dev/video0
+      - /dev/video1:/dev/video1
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CAMERA_MODE=${CAMERA_MODE:-gray}
+      - CAMERA_QUALITY=${CAMERA_QUALITY:-50}
+    command: python3 web_camera_server.py
+
+  ws_ros2_bridge:
+    build:
+      context: ./GUI
+    network_mode: host
+    privileged: true
+    container_name: ws_ros2_bridge
+    volumes:
+      - ./GUI:/app
+    environment:
+      - ROS_LOCALHOST_ONLY=${ROS_LOCALHOST_ONLY:-1}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - PYTHONUNBUFFERED=1
+    command: /bin/bash -c "source /opt/ros/humble/setup.bash && python3 ws_ros2_bridge.py"
