@@ -181,7 +181,7 @@
                         const factor = this.jointMultipliers[joint] !== undefined ? this.jointMultipliers[joint] : 1.0;
                         const scaledVal = value * factor;
                         if (this.fkDisplaySpans[joint]) {
-                            this.fkDisplaySpans[joint].innerText = `${value.toFixed(1)} (x${factor.toFixed(2)} = ${scaledVal.toFixed(1)})`;
+                            this.fkDisplaySpans[joint].innerHTML = `${value.toFixed(1)} <span style="color:#64748b; font-size:0.75rem; text-shadow:none; font-weight:normal;">(x${factor.toFixed(2)}=${scaledVal.toFixed(1)})</span>`;
                         }
                         this.fkSliders[joint].dispatchEvent(new Event('input', { bubbles: true }));
                     }
@@ -353,10 +353,13 @@
                                             </label>
                                         </div>
                                     </div>
-                                    <div class="slider-row" style="display: flex; align-items: center; gap: 12px;">
+                                    <div class="slider-row" style="display: flex; align-items: center; gap: 8px;">
+                                        <button id="fk_${joint}_dec" style="padding: 2px 8px; cursor: pointer; border-radius: 4px; border: 1px solid #475569; background: #1e293b; color: #fff; font-weight: bold;">-</button>
                                         <input type="range" id="fk_${joint}_slider"
                                                min="${range.min}" max="${range.max}" value="0" step="0.1" style="flex: 1;">
-                                        <span id="fk_${joint}_display" style="min-width: 140px; text-align: right; font-family: monospace; color: #f8fafc; font-size: 0.85rem;">0.0 (x1.00 = 0.0)</span>
+                                        <button id="fk_${joint}_inc" style="padding: 2px 8px; cursor: pointer; border-radius: 4px; border: 1px solid #475569; background: #1e293b; color: #fff; font-weight: bold;">+</button>
+                                        <input type="number" id="fk_${joint}_step" value="1" step="0.1" style="width: 50px; background: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 4px; padding: 2px 4px; text-align: center;" title="Step size">
+                                        <span id="fk_${joint}_display" style="display: inline-flex; justify-content: flex-end; align-items: baseline; gap: 6px; background: #020617; border: 1px solid #0ea5e9; border-radius: 6px; padding: 4px 8px; min-width: 170px; text-align: right; box-shadow: 0 0 10px rgba(14, 165, 233, 0.2), inset 0 2px 5px rgba(0,0,0,0.8); font-family: 'Courier New', Courier, monospace; color: #38bdf8; font-size: 1rem; font-weight: bold; text-shadow: 0 0 8px rgba(56, 189, 248, 0.6); letter-spacing: 0.5px;">0.0 <span style="color:#64748b; font-size:0.75rem; text-shadow:none; font-weight:normal;">(x1.00=0.0)</span></span>
                                     </div>
                                 </div>
                             `;
@@ -451,11 +454,14 @@
                             return `
                                 <div class="ik-control">
                                     <label>${range.label}</label>
-                                    <div class="slider-row">
+                                    <div class="slider-row" style="display: flex; align-items: center; gap: 8px;">
+                                        <button id="ik_${axis}_dec" style="padding: 2px 8px; cursor: pointer; border-radius: 4px; border: 1px solid #475569; background: #1e293b; color: #fff; font-weight: bold;">-</button>
                                         <input type="range" id="ik_${axis}_slider"
                                                min="${range.min}" max="${range.max}"
-                                               value="${this.ikValues[axis]}" step="0.1">
-                                        <span id="ik_${axis}_display">${this.ikValues[axis].toFixed(1)}</span>
+                                               value="${this.ikValues[axis]}" step="0.1" style="flex: 1;">
+                                        <button id="ik_${axis}_inc" style="padding: 2px 8px; cursor: pointer; border-radius: 4px; border: 1px solid #475569; background: #1e293b; color: #fff; font-weight: bold;">+</button>
+                                        <input type="number" id="ik_${axis}_step" value="1" step="0.1" style="width: 50px; background: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 4px; padding: 2px 4px; text-align: center;" title="Step size">
+                                        <span id="ik_${axis}_display" style="display: inline-block; background: #020617; border: 1px solid #10b981; border-radius: 6px; padding: 4px 8px; min-width: 70px; text-align: right; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2), inset 0 2px 5px rgba(0,0,0,0.8); font-family: 'Courier New', Courier, monospace; color: #34d399; font-size: 1rem; font-weight: bold; text-shadow: 0 0 8px rgba(52, 211, 153, 0.6); letter-spacing: 0.5px;">${this.ikValues[axis].toFixed(1)}</span>
                                     </div>
                                 </div>
                             `;
@@ -528,6 +534,9 @@
                 const minInput    = this.container.querySelector(`#fk_${joint}_min`);
                 const maxInput    = this.container.querySelector(`#fk_${joint}_max`);
                 const factorInput = this.container.querySelector(`#fk_${joint}_factor`);
+                const decBtn      = this.container.querySelector(`#fk_${joint}_dec`);
+                const incBtn      = this.container.querySelector(`#fk_${joint}_inc`);
+                const stepInput   = this.container.querySelector(`#fk_${joint}_step`);
 
                 this.fkSliders[joint]      = slider;
                 this.fkDisplaySpans[joint] = display;
@@ -558,7 +567,7 @@
                     slider.value = rawVal;
 
                     const scaledVal = rawVal * factorVal;
-                    display.innerText = `${rawVal.toFixed(1)} (x${factorVal.toFixed(2)} = ${scaledVal.toFixed(1)})`;
+                    display.innerHTML = `${rawVal.toFixed(1)} <span style="color:#64748b; font-size:0.75rem; text-shadow:none; font-weight:normal;">(x${factorVal.toFixed(2)}=${scaledVal.toFixed(1)})</span>`;
 
                     if (this.mode === 'FK') this.sendUpdate();
                 };
@@ -567,17 +576,37 @@
                 if (minInput) minInput.onchange = updateJointState;
                 if (maxInput) maxInput.onchange = updateJointState;
                 if (factorInput) factorInput.oninput = updateJointState;
+                
+                if (decBtn) {
+                    decBtn.onclick = () => {
+                        let step = parseFloat(stepInput.value) || 1;
+                        let val = parseFloat(slider.value) - step;
+                        slider.value = val;
+                        updateJointState();
+                    };
+                }
+                if (incBtn) {
+                    incBtn.onclick = () => {
+                        let step = parseFloat(stepInput.value) || 1;
+                        let val = parseFloat(slider.value) + step;
+                        slider.value = val;
+                        updateJointState();
+                    };
+                }
             });
 
             // IK Sliders
             Object.keys(this.ikRanges).forEach(axis => {
                 const slider  = this.container.querySelector(`#ik_${axis}_slider`);
                 const display = this.container.querySelector(`#ik_${axis}_display`);
+                const decBtn  = this.container.querySelector(`#ik_${axis}_dec`);
+                const incBtn  = this.container.querySelector(`#ik_${axis}_inc`);
+                const stepInput = this.container.querySelector(`#ik_${axis}_step`);
 
                 this.ikSliders[axis]      = slider;
                 this.ikDisplaySpans[axis] = display;
 
-                slider.oninput = () => {
+                const updateIKState = () => {
                     let val = parseFloat(slider.value);
                     const range = this.ikRanges[axis];
                     val = Math.min(Math.max(val, range.min), range.max);
@@ -586,6 +615,25 @@
                     display.innerText = val.toFixed(1);
                     if (this.mode === 'IK') this.sendUpdate();
                 };
+
+                slider.oninput = updateIKState;
+                
+                if (decBtn) {
+                    decBtn.onclick = () => {
+                        let step = parseFloat(stepInput.value) || 1;
+                        let val = parseFloat(slider.value) - step;
+                        slider.value = val;
+                        updateIKState();
+                    };
+                }
+                if (incBtn) {
+                    incBtn.onclick = () => {
+                        let step = parseFloat(stepInput.value) || 1;
+                        let val = parseFloat(slider.value) + step;
+                        slider.value = val;
+                        updateIKState();
+                    };
+                }
             });
 
             // Mode switch
@@ -781,7 +829,7 @@
                     const factor = this.jointMultipliers[joint] !== undefined ? this.jointMultipliers[joint] : 1.0;
                     const scaledVal = value * factor;
                     if (this.fkDisplaySpans[joint]) {
-                        this.fkDisplaySpans[joint].innerText = `${value.toFixed(1)} (x${factor.toFixed(2)} = ${scaledVal.toFixed(1)})`;
+                        this.fkDisplaySpans[joint].innerHTML = `${value.toFixed(1)} <span style="color:#64748b; font-size:0.75rem; text-shadow:none; font-weight:normal;">(x${factor.toFixed(2)}=${scaledVal.toFixed(1)})</span>`;
                     }
                     this.fkSliders[joint].dispatchEvent(new Event('input', { bubbles: true }));
                 }
