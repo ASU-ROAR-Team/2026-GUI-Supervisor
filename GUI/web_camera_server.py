@@ -52,17 +52,26 @@ def test_camera_node(dev):
     if not cap.isOpened():
         cap.release()
         return False, None
+
+    dev_name = get_device_name(dev).upper()
     
-    # Force MJPEG pixel format during test scan
-    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-    
+    # ZED 2i requires YUYV format and side-by-side resolution (2560x720 or 1280x720)
+    if "ZED" in dev_name:
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'YUYV'))
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 2560)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    else:
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+
     ret = False
     frame = None
-    for _ in range(5):
+    # Allow ZED sensor extra frames to warm up buffer
+    for _ in range(10):
         ret, frame = cap.read()
         if ret and frame is not None:
             break
-        time.sleep(0.02)
+        time.sleep(0.03)
+
     cap.release()
     return ret, frame
 
@@ -137,13 +146,19 @@ def capture_worker(dev_path):
     print(f"Initializing Camera {dev_path} ({dev_name})...")
     
     cap = cv2.VideoCapture(dev_path, cv2.CAP_V4L2)
-    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-    if not is_zed and not is_realsense:
+    # Use YUYV for ZED, MJPG for standard USB webcams
+    if is_zed:
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'YUYV'))
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 2560)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    else:
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, stream_config["width"])
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, stream_config["height"])
         cap.set(cv2.CAP_PROP_FPS, stream_config["fps_cap"])
+
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     if not cap.isOpened():
         print(f"❌ ERROR: Could not open {dev_path}.")
