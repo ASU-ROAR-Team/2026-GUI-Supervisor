@@ -52,6 +52,10 @@ def test_camera_node(dev):
     if not cap.isOpened():
         cap.release()
         return False, None
+    
+    # Force MJPEG pixel format during test scan
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+    
     ret = False
     frame = None
     for _ in range(5):
@@ -672,6 +676,7 @@ class CameraHandler(BaseHTTPRequestHandler):
             document.getElementById('qualityVal').textContent = quality + '%';
             document.getElementById('brightnessVal').textContent = brightness;
             document.getElementById('contrastVal').textContent = contrast;
+        }}
 
         function applyPreFlightConfig(enableStreams) {{
             const selectedColor = document.getElementById('preFlightColor').value;

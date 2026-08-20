@@ -22,13 +22,12 @@ services:
     container_name: web_camera_server
     volumes:
       - ./GUI:/app
-      - /dev/video0:/dev/video0
-      - /dev/video1:/dev/video1
+      - /dev:/dev
     environment:
       - PYTHONUNBUFFERED=1
       - CAMERA_MODE=${CAMERA_MODE:-gray}
       - CAMERA_QUALITY=${CAMERA_QUALITY:-50}
-    command: python3 web_camera_server.py
+    command: python3 web_camera_server.py --include-video0
 
   ws_ros2_bridge:
     build:
