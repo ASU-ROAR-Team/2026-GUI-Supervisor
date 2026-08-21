@@ -59,6 +59,8 @@ class WSROS2Bridge(Node):
         self.create_subscription(String, '/drilling_fsm_state', self.drilling_fsm_cb, 10)
         self.create_subscription(Float32MultiArray, '/drilling/sensor_feedback', self.sensor_feedback_cb, 10)
         self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_echo_cb, 10)
+        self.create_subscription(Float64MultiArray, '/current_readings_topic', self.current_readings_cb, 10)
+        self.create_subscription(Float32MultiArray, '/roar_robot_arm/joint_feedback', self.arm_joint_feedback_cb, 10)
 
         self.create_subscription(CompressedImage, '/logitech_1/image_raw/compressed', self.logitech_camera_cb, 10)
         self.create_subscription(CompressedImage, '/zed2i/zed_node/depth/depth_registered/color_mapped_image/compressed_for_web', self.zed_camera_cb, 10)
@@ -390,6 +392,16 @@ class WSROS2Bridge(Node):
         if len(msg.data) >= 2:
             payload = {"current": msg.data[0], "encoder": msg.data[1]}
             self.broadcast(json.dumps({"type": "drilling_sensor_feedback", "data": json.dumps(payload)}))
+
+    def current_readings_cb(self, msg):
+        if not self.ws_clients:
+            return
+        self.broadcast(json.dumps({"type": "current_readings", "data": list(msg.data)}))
+
+    def arm_joint_feedback_cb(self, msg):
+        if not self.ws_clients:
+            return
+        self.broadcast(json.dumps({"type": "arm_joint_feedback", "data": list(msg.data)}))
 
     def ground_truth_pose_cb(self, msg):
         pos = msg.pose.pose.position
