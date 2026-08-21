@@ -110,6 +110,36 @@
                     .catch(e => console.error("Error updating camera control:", e));
             };
 
+            window.toggleCamPowerGrid = function(camNum, host) {
+                const imgEl = document.getElementById(`grid-stream-${camNum}`);
+                const pausedEl = document.getElementById(`grid-paused-${camNum}`);
+                const btn = document.getElementById(`grid-power-${camNum}`);
+                
+                if (!btn) return;
+                const isEnabled = btn.classList.contains('btn-on');
+                const nextEnabled = !isEnabled;
+                
+                btn.className = nextEnabled ? 'btn-ctrl-preset btn-on' : 'btn-ctrl-preset btn-off';
+                btn.textContent = nextEnabled ? '🟢 ON' : '🔴 OFF';
+                if (imgEl) imgEl.style.display = nextEnabled ? 'block' : 'none';
+                if (pausedEl) pausedEl.style.display = nextEnabled ? 'none' : 'flex';
+                
+                fetch(`http://${host}:9090/api/control?cam=${camNum}&enabled=${nextEnabled ? 1 : 0}`)
+                    .catch(e => console.error("Error toggling power:", e));
+            };
+
+            window.toggleCamColorGrid = function(camNum, host) {
+                const btn = document.getElementById(`grid-color-${camNum}`);
+                if (!btn) return;
+                
+                const isRgb = btn.textContent.includes('RGB');
+                const nextColor = isRgb ? 'gray' : 'rgb';
+                btn.textContent = isRgb ? '🏁 GRAY' : '🎨 RGB';
+                
+                fetch(`http://${host}:9090/api/control?cam=${camNum}&color=${nextColor}`)
+                    .catch(e => console.error("Error toggling color:", e));
+            };
+
             // Global Snapshot Handlers for OpenMCT
             window.showCamToast = function(msg) {
                 let toast = document.getElementById('openmct-cam-toast');
@@ -375,57 +405,74 @@
                             viewElement = element;
                             const host = (window.getCameraHost ? window.getCameraHost() : window.location.hostname) || 'localhost';
 
-                            // Fetch active cameras dynamically, fallback to defaults
-                            let camNums = [2, 4, 6, 8, 10];
-                            let camLabels = [
-                                "Cam 1 (Front - /dev/video2)",
-                                "Cam 2 (Left - /dev/video4)",
-                                "Cam 3 (Right - /dev/video6)",
-                                "Cam 4 (Rear - /dev/video8)",
-                                "Cam 5 (Arm/Tool - /dev/video10)"
-                            ];
+                             let cameras = [
+                                 { cam_num: 2, name: "Cam 1", dev: "/dev/video2", enabled: true, color: "gray" },
+                                 { cam_num: 4, name: "Cam 2", dev: "/dev/video4", enabled: true, color: "gray" },
+                                 { cam_num: 6, name: "Cam 3", dev: "/dev/video6", enabled: true, color: "gray" },
+                                 { cam_num: 8, name: "Cam 4", dev: "/dev/video8", enabled: true, color: "gray" },
+                                 { cam_num: 10, name: "Cam 5", dev: "/dev/video10", enabled: true, color: "gray" }
+                             ];
 
-                            try {
-                                const controller = new AbortController();
-                                const timeoutId = setTimeout(() => controller.abort(), 2000);
-                                const res = await fetch(`http://${host}:9090/api/cameras`, { signal: controller.signal });
-                                clearTimeout(timeoutId);
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    if (data.cameras && Array.isArray(data.cameras)) {
-                                        camNums = data.cameras.map(c => parseInt(c.cam_num));
-                                        camLabels = data.cameras.map(c => `${c.name} (${c.dev})`);
-                                    }
-                                }
-                            } catch (e) {
-                                console.log('[CameraPlugin] Could not fetch dynamic camera list, using defaults.');
-                            }
+                             try {
+                                 const controller = new AbortController();
+                                 const timeoutId = setTimeout(() => controller.abort(), 2000);
+                                 const res = await fetch(`http://${host}:9090/api/cameras`, { signal: controller.signal });
+                                 clearTimeout(timeoutId);
+                                 if (res.ok) {
+                                     const data = await res.json();
+                                     if (data.cameras && Array.isArray(data.cameras)) {
+                                         cameras = data.cameras.map(c => ({
+                                             cam_num: parseInt(c.cam_num),
+                                             name: c.name,
+                                             dev: c.dev,
+                                             enabled: c.enabled !== false,
+                                             color: c.color || 'gray'
+                                         }));
+                                     }
+                                 }
+                             } catch (e) {
+                                 console.log('[CameraPlugin] Could not fetch dynamic camera list, using defaults.');
+                             }
 
-                            element.innerHTML = `
-                                <div class="multi-cam-container">
-                                    <div class="multi-cam-header">
-                                        <h3>📹 Multi-Camera Real-Time Monitor</h3>
-                                        <div style="display: flex; gap: 10px; align-items: center;">
-                                            <button class="btn-ctrl-preset" style="background: #0284c7; border-color: #38bdf8; padding: 5px 14px; font-weight: 600;" onclick="window.captureMultiCamGrid('${host}')">📸 Capture Grid View</button>
-                                            <span class="multi-cam-badge">${camNums.length} Camera(s) Active</span>
-                                        </div>
-                                    </div>
-                                    ${getControlBarHTML(host)}
-                                    <div class="multi-cam-grid">
-                                        ${camNums.length === 0 ? '<div style="grid-column: 1 / -1; text-align: center; padding: 40px; background: #1e293b; border-radius: 8px; color: #94a3b8;">No cameras detected on the server. Please check hardware connections.</div>' : camNums.map((num, i) => `
-                                            <div class="cam-card">
-                                                <div class="cam-card-title" style="display: flex; justify-content: space-between; align-items: center;">
-                                                    <span>${camLabels[i]}</span>
-                                                    <button class="btn-ctrl-preset" style="padding: 2px 8px; font-size: 0.75rem;" onclick="window.captureSingleCamFromGrid(${num}, '${camLabels[i].replace(/'/g, "\\'")}', '${host}')">📸 Snap</button>
-                                                </div>
-                                                <div class="cam-frame">
-                                                    <img src="http://${host}:9090/api/stream/${num}" alt="${camLabels[i]}" 
-                                                         onerror="this.onerror=null; this.src='http://${host}:9090/api/frame/${num}';">
-                                                </div>
-                                            </div>
-                                        `).join('')}
-                                    </div>
-                                </div>
+                             element.innerHTML = `
+                                 <div class="multi-cam-container">
+                                     <div class="multi-cam-header">
+                                         <h3>📹 Multi-Camera Real-Time Monitor</h3>
+                                         <div style="display: flex; gap: 10px; align-items: center;">
+                                             <button class="btn-ctrl-preset" style="background: #0284c7; border-color: #38bdf8; padding: 5px 14px; font-weight: 600;" onclick="window.captureMultiCamGrid('${host}')">📸 Capture Grid View</button>
+                                             <span class="multi-cam-badge">${cameras.length} Camera(s) Active</span>
+                                         </div>
+                                     </div>
+                                     ${getControlBarHTML(host)}
+                                     <div class="multi-cam-grid">
+                                         ${cameras.length === 0 ? '<div style="grid-column: 1 / -1; text-align: center; padding: 40px; background: #1e293b; border-radius: 8px; color: #94a3b8;">No cameras detected on the server. Please check hardware connections.</div>' : cameras.map((cam, i) => {
+                                             const isEnabled = cam.enabled;
+                                             const powerClass = isEnabled ? 'btn-ctrl-preset btn-on' : 'btn-ctrl-preset btn-off';
+                                             const powerLabel = isEnabled ? '🟢 ON' : '🔴 OFF';
+                                             const colorLabel = cam.color === 'rgb' ? '🎨 RGB' : '🏁 GRAY';
+                                             return `
+                                             <div class="cam-card" id="grid-card-${cam.cam_num}">
+                                                 <div class="cam-card-title" style="display: flex; justify-content: space-between; align-items: center;">
+                                                     <span>${cam.name} (${cam.dev})</span>
+                                                     <button class="btn-ctrl-preset" style="padding: 2px 8px; font-size: 0.75rem;" onclick="window.captureSingleCamFromGrid(${cam.cam_num}, '${cam.name.replace(/'/g, "\\'")}', '${host}')">📸 Snap</button>
+                                                 </div>
+                                                 <div class="cam-frame" style="position: relative;">
+                                                     <img id="grid-stream-${cam.cam_num}" src="http://${host}:9090/api/stream/${cam.cam_num}" alt="${cam.name}" 
+                                                          style="display: ${isEnabled ? 'block' : 'none'};"
+                                                          onerror="this.onerror=null; this.src='http://${host}:9090/api/frame/${cam.cam_num}';">
+                                                     <div id="grid-paused-${cam.cam_num}" class="paused-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: ${isEnabled ? 'none' : 'flex'}; justify-content: center; align-items: center; background: rgba(0,0,0,0.8); color: #cbd5e1; font-weight: bold; font-size: 1rem;">
+                                                         ⏸ STREAM PAUSED
+                                                     </div>
+                                                 </div>
+                                                 <div class="cam-card-controls" style="padding: 8px; background: #1e293b; display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid #334155;">
+                                                     <button id="grid-power-${cam.cam_num}" class="${powerClass}" onclick="window.toggleCamPowerGrid(${cam.cam_num}, '${host}')">${powerLabel}</button>
+                                                     <button id="grid-color-${cam.cam_num}" class="btn-ctrl-preset" onclick="window.toggleCamColorGrid(${cam.cam_num}, '${host}')">${colorLabel}</button>
+                                                 </div>
+                                             </div>
+                                             `;
+                                         }).join('')}
+                                     </div>
+                                 </div>
                                 <style>
                                     .multi-cam-container {
                                         padding: 15px;
@@ -476,6 +523,9 @@
                                         font-size: 0.8rem;
                                     }
                                     .btn-ctrl-preset:hover { background: #0284c7; border-color: #38bdf8; }
+                                    
+                                    .btn-on { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }
+                                    .btn-off { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
                                     
                                     .cam-single-wrapper { flex: 1; width: 100%; min-height: 0; background: #000; display: flex; align-items: center; justify-content: center; border-radius: 8px; overflow: hidden; }
 

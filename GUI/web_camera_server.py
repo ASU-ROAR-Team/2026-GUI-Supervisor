@@ -191,7 +191,7 @@ def capture_worker(dev_path):
 
         # Immediate Grayscale Conversion: Drop 3-channel color data right at capture before processing & transmission
         cam_color = cam_states.get(dev_path, {}).get("color", "gray")
-        is_gray = (stream_config["global_color"] == "gray" or cam_color == "gray")
+        is_gray = (cam_color == "gray")
 
         if is_gray:
             if len(frame.shape) == 3 and frame.shape[2] == 3:
@@ -323,7 +323,11 @@ class CameraHandler(BaseHTTPRequestHandler):
                 elif res == '640':
                     stream_config['width'], stream_config['height'] = 640, 480
             if 'global_color' in query:
-                stream_config['global_color'] = query['global_color'][0]
+                g_color = query['global_color'][0]
+                stream_config['global_color'] = g_color
+                for dev in DEV_NODES:
+                    if dev in cam_states:
+                        cam_states[dev]['color'] = g_color
             if 'zed_mode' in query:
                 mode = query['zed_mode'][0]
                 if mode in ['left', 'right', 'full']:

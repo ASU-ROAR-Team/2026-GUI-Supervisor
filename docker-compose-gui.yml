@@ -1,3 +1,6 @@
+include:
+  - ./GUI/monitoring/docker-compose.yml
+
 services:
   gui_container:
     build:

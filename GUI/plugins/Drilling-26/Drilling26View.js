@@ -248,9 +248,11 @@
                     }
                 }
                 this.startDirectCameraStream();
+                this.syncCameraPowerState(this.selectedCamNum);
             } catch (e) {
                 console.log("[Drilling26View] Could not fetch dynamic camera list, using defaults.");
                 this.startDirectCameraStream();
+                this.syncCameraPowerState(this.selectedCamNum);
             }
         }
 
@@ -431,6 +433,7 @@
                 this.presetNightBtn         = webcamContainer.querySelector('#drillingPresetNight');
                 this.snapshotBtn            = webcamContainer.querySelector('#drillingSnapshotBtn');
                 this.saveDiskBtn            = webcamContainer.querySelector('#drillingSaveDiskBtn');
+                this.powerBtnElement        = webcamContainer.querySelector('#drillingPowerBtn');
             }
 
             this.addEventListeners();
@@ -443,7 +446,7 @@
                 this.camSelectElement.addEventListener('change', (e) => {
                     this.selectedCamNum = e.target.value;
                     this.startDirectCameraStream();
-                    this.updateCameraControl();
+                    this.syncCameraPowerState(this.selectedCamNum);
                 });
             }
 
@@ -477,6 +480,9 @@
 
             if (this.saveDiskBtn) {
                 this.saveDiskBtn.addEventListener('click', () => this.saveToDiskFolder());
+            }
+            if (this.powerBtnElement) {
+                this.powerBtnElement.addEventListener('click', () => this.toggleCameraPower());
             }
 
             if (this.platformUpButton) {
@@ -686,6 +692,59 @@
                     note.textContent = '⚠️ No supervisor active — manual controls enabled in fallback mode.';
                     note.style.color = '#e67e22';
                 }
+            }
+        }
+
+        toggleCameraPower() {
+            if (!this.powerBtnElement) return;
+            const isEnabled = this.powerBtnElement.textContent.includes('ON');
+            const nextEnabled = !isEnabled;
+
+            this.powerBtnElement.textContent = nextEnabled ? '🟢 ON' : '🔴 OFF';
+            this.powerBtnElement.style.background = nextEnabled ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+            this.powerBtnElement.style.color = nextEnabled ? '#34d399' : '#f87171';
+            this.powerBtnElement.style.borderColor = nextEnabled ? '#10b981' : '#ef4444';
+
+            if (this.webcamImageElement) {
+                this.webcamImageElement.style.display = nextEnabled ? 'block' : 'none';
+            }
+            if (this.webcamStatusMsgElement) {
+                this.webcamStatusMsgElement.style.display = nextEnabled ? 'none' : 'block';
+                this.webcamStatusMsgElement.textContent = nextEnabled ? '' : 'Camera Stream Paused';
+            }
+
+            const camNum = this.selectedCamNum || '10';
+            fetch(`http://${this.cameraHost}:9090/api/control?cam=${camNum}&enabled=${nextEnabled ? 1 : 0}`)
+                .catch(e => console.error("Error toggling camera power:", e));
+        }
+
+        async syncCameraPowerState(camNum) {
+            try {
+                const res = await fetch(`http://${this.cameraHost}:9090/api/cameras`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const cam = data.cameras.find(c => String(c.cam_num) === String(camNum));
+                    if (cam && this.powerBtnElement) {
+                        const isEnabled = cam.enabled !== false;
+                        this.powerBtnElement.textContent = isEnabled ? '🟢 ON' : '🔴 OFF';
+                        this.powerBtnElement.style.background = isEnabled ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+                        this.powerBtnElement.style.color = isEnabled ? '#34d399' : '#f87171';
+                        this.powerBtnElement.style.borderColor = isEnabled ? '#10b981' : '#ef4444';
+                        
+                        if (this.webcamImageElement) {
+                            this.webcamImageElement.style.display = isEnabled ? 'block' : 'none';
+                        }
+                        if (this.webcamStatusMsgElement) {
+                            this.webcamStatusMsgElement.style.display = isEnabled ? 'none' : 'block';
+                            this.webcamStatusMsgElement.textContent = isEnabled ? '' : 'Camera Stream Paused';
+                        }
+                        if (this.colorSelectElement) {
+                            this.colorSelectElement.value = cam.color || 'gray';
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Error syncing camera power state:", e);
             }
         }
 
