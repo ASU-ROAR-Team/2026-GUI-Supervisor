@@ -217,7 +217,13 @@
             this.ws.onmessage = (event) => {
                 try {
                     const msg = JSON.parse(event.data);
-                    // Silent RX logger to prevent spam unless needed
+                    if (msg.type === "current_readings") {
+                        const display = this.container.querySelector('#currentReadingsDisplay');
+                        if (display) display.innerText = msg.data.map(v => v.toFixed(2)).join(', ');
+                    } else if (msg.type === "arm_joint_feedback") {
+                        const display = this.container.querySelector('#armJointFeedbackDisplay');
+                        if (display) display.innerText = msg.data.map(v => v.toFixed(2)).join(', ');
+                    }
                 } catch (e) {
                     console.error("[ArmControlFKView] Failed to parse message", e);
                 }
@@ -326,6 +332,21 @@
                         🔓 Lock Orientation: OFF
                     </button>
                     <button id="modeSwitchButton">Switch to IK Mode</button>
+                </div>
+
+                <!-- Feedback Display Section -->
+                <div class="feedback-section" style="margin-top: 16px; margin-bottom: 16px; background: rgba(30, 41, 59, 0.4); border: 1px solid #334155; border-radius: 8px; padding: 14px;">
+                    <h4 style="margin-top: 0; color: #38bdf8; font-size: 0.95rem; margin-bottom: 10px;">Arm Feedback & Readings</h4>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: #94a3b8; font-size: 0.85rem; font-family: monospace;">/current_readings_topic:</span>
+                            <span id="currentReadingsDisplay" style="color: #34d399; font-family: monospace; font-weight: bold;">Waiting...</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: #94a3b8; font-size: 0.85rem; font-family: monospace;">/roar_robot_arm/joint_feedback:</span>
+                            <span id="armJointFeedbackDisplay" style="color: #34d399; font-family: monospace; font-weight: bold;">Waiting...</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- FK Mode Section -->
