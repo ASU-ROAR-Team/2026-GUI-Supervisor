@@ -1,27 +1,71 @@
 #!/bin/bash
 
-# Exit immediately if any command fails
-set -e
-
 # Navigate to project root (one directory up from where this script resides)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 echo "==========================================="
-echo "Starting ROS2 GUI Setup & Launch Script"
+echo "  ROAR GUI Launcher"
 echo "==========================================="
 
-# Determine which deployment configuration to execute based on arguments
 if [ "$1" == "--rover" ]; then
-    echo "Deploying Rover Configuration (ROS 2 Supervisor, WS Bridge, Camera Server)..."
+    # ── Rover / Jetson side ──────────────────────────────────────────────────
+    # Auto-detect the first non-loopback, non-docker IPv4 address on this machine
+    DETECTED_IP=$(hostname -I | tr ' ' '\n' \
+        | grep -v '^127\.' \
+        | grep -v '^172\.' \
+        | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' \
+        | head -1)
+
+    echo ""
+    echo "  Deploying Rover Configuration"
+    echo "  (ROS 2 Supervisor, WS Bridge, Camera Server)"
+    echo ""
+    if [ -n "$DETECTED_IP" ]; then
+        echo "  ✅ Rover IP detected: $DETECTED_IP"
+        echo ""
+        echo "  ➡  On the Base Station run:"
+        echo "     ./GUI/start_gui.sh --gui $DETECTED_IP"
+        echo ""
+        echo "  ➡  Then open: http://localhost:8081/?host=$DETECTED_IP"
+    else
+        echo "  ⚠  Could not auto-detect IP. Run 'hostname -I' to find it."
+    fi
+    echo "==========================================="
+
     docker compose -f docker-compose-rover.yml up -d
+
 elif [ "$1" == "--gui" ]; then
-    echo "Deploying Base Station Configuration (OpenMCT GUI)..."
-    docker compose -f docker-compose-gui.yml up -d
+    # ── Base Station side ────────────────────────────────────────────────────
+    # Accept rover IP as second argument; fall back to .env / default
+    ROVER_IP_ARG="${2:-}"
+
+    if [ -n "$ROVER_IP_ARG" ]; then
+        echo ""
+        echo "  Deploying Base Station Configuration (OpenMCT GUI)"
+        echo "  Rover IP: $ROVER_IP_ARG  (from command-line argument)"
+        echo "==========================================="
+        ROVER_IP="$ROVER_IP_ARG" docker compose -f docker-compose-gui.yml up --build -d
+    else
+        # No argument — use whatever ROVER_IP is set in .env
+        FALLBACK_IP=$(grep '^ROVER_IP=' "$PROJECT_ROOT/.env" 2>/dev/null | cut -d'=' -f2)
+        echo ""
+        echo "  Deploying Base Station Configuration (OpenMCT GUI)"
+        echo "  Rover IP: ${FALLBACK_IP:-not set}  (from .env — pass IP as 2nd arg to override)"
+        echo "  Usage: ./GUI/start_gui.sh --gui <ROVER_IP>"
+        echo "==========================================="
+        docker compose -f docker-compose-gui.yml up --build -d
+    fi
+
 else
-    echo "Usage: ./start_gui.sh [--rover | --gui]"
-    echo "  --rover   : Deploys the Jetson AGX Xavier environment (Supervisor, Cameras, Bridge)"
-    echo "  --gui     : Deploys the Base Station OpenMCT environment"
+    echo ""
+    echo "  Usage:"
+    echo "    On Jetson  : ./GUI/start_gui.sh --rover"
+    echo "    On Base PC : ./GUI/start_gui.sh --gui <ROVER_IP>"
+    echo ""
+    echo "  Example:"
+    echo "    ./GUI/start_gui.sh --gui 192.168.150.189"
+    echo ""
     exit 1
 fi

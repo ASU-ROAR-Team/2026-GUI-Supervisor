@@ -9,4 +9,5 @@ services:
       - /app/node_modules
     environment:
       - PYTHONUNBUFFERED=1
+      - ROVER_IP=${ROVER_IP:-192.168.0.100}
     command: node server.js

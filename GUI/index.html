@@ -3,6 +3,7 @@
 <html>
 <head>
   <title>ROS Connection Test</title>
+  <script src="/config.js"></script>
   <script src="node_modules/openmct/dist/openmct.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/roslib@1.3.0/build/roslib.min.js"></script>
   <script src="actions/combo-start-plugin.js"></script>
@@ -50,16 +51,17 @@
 
   <script>
     window.getRoarHost = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const roverParam = urlParams.get('host');
+        if (roverParam) return roverParam;
+
         const host = window.location.hostname;
-        // TODO: Expose this IP as an environment variable in docker-compose-gui.yml
-        const jetsonOmadaIP = '192.168.0.100'; 
-        return host === 'localhost' ? jetsonOmadaIP : host;
+        return host === 'localhost' ? window.ENV_ROVER_IP : host;
     };
 
-    // Camera server is ALWAYS co-located with the GUI (same container/machine).
-    // Never use getRoarHost() for camera URLs — that points to the rover's ROS bridge.
+    // In Phase 3, the camera server is running on the Rover (Jetson), alongside the ROS bridge.
     window.getCameraHost = function() {
-      return window.location.hostname || 'localhost';
+      return window.getRoarHost();
     };
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -92,16 +94,24 @@
           openmct.install(openmct.plugins.Espresso());
           console.log('Open MCT started with Espresso theme (dark mode).');
       }
-      if (typeof openmct.time.setClock === 'function') {
-          openmct.time.setClock('local', {start: -15 * 60 * 1000, end: 0});
-      } else {
-          openmct.time.clock('local', {start: -15 * 60 * 1000, end: 0});
-      }
-      openmct.time.setMode('realtime');
-      if (typeof openmct.time.setTimeSystem === 'function') {
-          openmct.time.setTimeSystem('utc');
-      } else {
-          openmct.time.timeSystem('utc');
+      // Initialise time system first, then clock — order matters for OpenMCT internals.
+      try {
+          const bounds = { start: Date.now() - 15 * 60 * 1000, end: Date.now() };
+          if (typeof openmct.time.setTimeSystem === 'function') {
+              openmct.time.setTimeSystem('utc', bounds);
+          } else if (typeof openmct.time.timeSystem === 'function') {
+              openmct.time.timeSystem('utc', bounds);
+          }
+          if (typeof openmct.time.setClock === 'function') {
+              openmct.time.setClock('local', { start: -15 * 60 * 1000, end: 0 });
+          } else if (typeof openmct.time.clock === 'function') {
+              openmct.time.clock('local', { start: -15 * 60 * 1000, end: 0 });
+          }
+          if (typeof openmct.time.setMode === 'function') {
+              openmct.time.setMode('realtime');
+          }
+      } catch (e) {
+          console.warn('[OpenMCT] Time system init warning:', e.message);
       }
 
       // Install all custom plugins

@@ -5,4 +5,4 @@ global:
 scrape_configs:
   - job_name: 'jetson_rover'
     static_configs:
-      - targets: ['192.168.150.143:9100']
+      - targets: ['192.168.150.189:9100']

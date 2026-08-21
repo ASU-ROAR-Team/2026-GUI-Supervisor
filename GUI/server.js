@@ -14,10 +14,17 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Serve frontend configuration based on backend environment variables
+app.get('/config.js', (req, res) => {
+    const roverIp = process.env.ROVER_IP || '192.168.0.100';
+    res.type('application/javascript');
+    res.send(`window.ENV_ROVER_IP = '${roverIp}';`);
+});
+
 // Proxy WebSocket upgrade requests to backend ROS2 bridge (ws_ros2_bridge.py on port 9091)
 function attachWsProxy(server) {
     server.on('upgrade', (req, socket, head) => {
-        const target = net.connect(9091, '127.0.0.1', () => {
+        const target = net.connect(9091, process.env.ROVER_IP || '127.0.0.1', () => {
             target.write(req.method + ' ' + req.url + ' HTTP/' + req.httpVersion + '\r\n');
             for (let i = 0; i < req.rawHeaders.length; i += 2) {
                 target.write(req.rawHeaders[i] + ': ' + req.rawHeaders[i + 1] + '\r\n');
