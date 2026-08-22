@@ -36,10 +36,9 @@ def get_device_name(dev_path):
     return f"Camera ({dev_path})"
 
 def is_internal_webcam(dev_path, dev_name):
-    """Identify if a video node is the base station's built-in laptop webcam."""
-    if dev_path in ['/dev/video0', '/dev/video1']:
-        return True
-    
+    """Identify if a video node is the base station's built-in laptop webcam.
+    NOTE: No hardcoded /dev/video index skipping — the Jetson has no internal
+    webcam, and ZED/RealSense cameras can enumerate at any index."""
     name_upper = dev_name.upper()
     # Exclude specific internal laptop camera model signatures; keep USB webcams (C615, GENERAL WEBCAM, etc.)
     internal_keywords = ["INTEGRATED", "INTERNAL", "LAPTOP", "HP WIDE VISION", "FACETIME", "BUILT-IN"]
@@ -50,23 +49,55 @@ def is_internal_webcam(dev_path, dev_name):
     return False
 
 def test_camera_node(dev):
-    """Test if a /dev/video node can open and capture valid frames."""
+    """Test if a /dev/video node can open and capture valid frames.
+    For RealSense cameras, rejects depth/IR nodes (uint16 or single-channel)
+    so only the RGB color node passes detection."""
+    dev_name = get_device_name(dev).upper()
+    is_realsense = "REALSENSE" in dev_name
+
     cap = cv2.VideoCapture(dev, cv2.CAP_V4L2)
     if not cap.isOpened():
         cap.release()
         return False, None
+
+    # ZED 2i requires YUYV format and side-by-side resolution (2560x720 or 1280x720)
+    if "ZED" in dev_name:
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'YUYV'))
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 2560)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    elif not is_realsense:
+        # Standard USB webcams can use MJPG
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+    # RealSense: don't force any fourcc — let V4L2 use its default
+
     ret = False
     frame = None
-    for _ in range(5):
+    # Allow ZED / RealSense sensors extra frames to warm up buffer
+    attempts = 10 if ("ZED" in dev_name or is_realsense) else 5
+    for _ in range(attempts):
         ret, frame = cap.read()
         if ret and frame is not None:
             break
-        time.sleep(0.02)
+        time.sleep(0.03)
+
     cap.release()
+
+    if not ret or frame is None:
+        return False, None
+
+    # For RealSense: reject depth (uint16) and IR (single-channel grayscale) nodes
+    # Only accept the RGB color node (3-channel, uint8)
+    if is_realsense:
+        if frame.dtype == np.uint16 or frame.dtype == np.int16:
+            return False, None
+        if len(frame.shape) < 3 or frame.shape[2] != 3:
+            return False, None
+
     return ret, frame
 
 def detect_camera_devices(include_video0=False):
-    """Scan /dev/video* nodes for external robotic cameras, strictly excluding base station laptop webcams."""
+    """Scan /dev/video* nodes for external robotic cameras, strictly excluding base station laptop webcams.
+    For RealSense: only keeps a single RGB node (rejects depth/IR nodes and duplicate RGB nodes)."""
     print("🔍 Scanning for available camera device nodes (Excluding base station webcam)...")
     dev_paths = sorted(
         glob.glob('/dev/video*'),
@@ -75,6 +106,7 @@ def detect_camera_devices(include_video0=False):
     
     available = []
     names = {}
+    realsense_rgb_found = False  # Only keep one RealSense RGB node to avoid V4L2 contention
     
     for dev in dev_paths:
         dev_name = get_device_name(dev)
@@ -83,13 +115,25 @@ def detect_camera_devices(include_video0=False):
             print(f"  🚫 Skipping base station webcam: {dev} ({dev_name})")
             continue
 
+        is_realsense = "REALSENSE" in dev_name.upper()
+
+        # Skip additional RealSense nodes once we already have one RGB node
+        if is_realsense and realsense_rgb_found:
+            print(f"  ⏭️ Skipping {dev} ({dev_name}) - RealSense RGB already registered")
+            continue
+
         ret, frame = test_camera_node(dev)
         if ret:
             print(f"  ✅ Detected active robotic camera: {dev} -> {dev_name}")
             available.append(dev)
             names[dev] = dev_name
+            if is_realsense:
+                realsense_rgb_found = True
         else:
-            print(f"  ⚠️ Skipping {dev} ({dev_name}) - cannot capture frames")
+            if is_realsense:
+                print(f"  ⏭️ Skipping {dev} ({dev_name}) - RealSense depth/IR node (not RGB)")
+            else:
+                print(f"  ⚠️ Skipping {dev} ({dev_name}) - cannot capture frames")
 
     if not available:
         print("⚠️ Warning: No active robotic video capture nodes found on system.")
@@ -136,13 +180,24 @@ def capture_worker(dev_path):
     print(f"Initializing Camera {dev_path} ({dev_name})...")
     
     cap = cv2.VideoCapture(dev_path, cv2.CAP_V4L2)
-    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-    if not is_zed and not is_realsense:
+    # Use YUYV for ZED, native format for RealSense, MJPG for standard USB webcams
+    if is_zed:
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'YUYV'))
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 2560)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    elif is_realsense:
+        # RealSense RGB: use native YUYV format, don't force MJPG (causes select() timeout)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, stream_config["width"])
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, stream_config["height"])
         cap.set(cv2.CAP_PROP_FPS, stream_config["fps_cap"])
+    else:
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, stream_config["width"])
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, stream_config["height"])
+        cap.set(cv2.CAP_PROP_FPS, stream_config["fps_cap"])
+
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     if not cap.isOpened():
         print(f"❌ ERROR: Could not open {dev_path}.")
