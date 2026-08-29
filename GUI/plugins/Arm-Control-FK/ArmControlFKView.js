@@ -219,7 +219,13 @@
                     const msg = JSON.parse(event.data);
                     if (msg.type === "current_readings") {
                         const display = this.container.querySelector('#currentReadingsDisplay');
-                        if (display) display.innerText = msg.data.map(v => v.toFixed(2)).join(', ');
+                        if (display) {
+                            display.innerHTML = msg.data.map(v => {
+                                const isWarning = v >= 6 || v <= -6;
+                                const style = isWarning ? 'color: #ef4444; font-weight: 900; background-color: rgba(239, 68, 68, 0.2); padding: 0 4px; border-radius: 4px;' : 'color: inherit;';
+                                return `<span style="${style}">${v.toFixed(2)}</span>`;
+                            }).join(', ');
+                        }
                     } else if (msg.type === "arm_joint_feedback") {
                         const display = this.container.querySelector('#armJointFeedbackDisplay');
                         if (display) display.innerText = msg.data.map(v => v.toFixed(2)).join(', ');
@@ -453,12 +459,12 @@
                     <div class="keyboard-shortcuts-section">
                         <h4 class="shortcut-header">Keyboard Shortcuts (FK Mode)</h4>
                         <div class="shortcuts-list">
-                            <div class="shortcut-item"><span>j0</span><span>Q(-) / W(+)</span></div>
-                            <div class="shortcut-item"><span>j1</span><span>A(-) / S(+)</span></div>
-                            <div class="shortcut-item"><span>j2</span><span>Z(-) / X(+)</span></div>
-                            <div class="shortcut-item"><span>j3</span><span>E(-) / R(+)</span></div>
-                            <div class="shortcut-item"><span>diff_m1</span><span>D(-) / F(+)</span></div>
-                            <div class="shortcut-item"><span>diff_m2</span><span>C(-) / V(+)</span></div>
+                            <div class="shortcut-item"><span>j0</span><span>J(-) / L(+)</span></div>
+                            <div class="shortcut-item"><span>j1</span><span>K(-) / I(+)</span></div>
+                            <div class="shortcut-item"><span>j2</span><span>U(-) / O(+)</span></div>
+                            <div class="shortcut-item"><span>j3</span><span>A(-) / D(+)</span></div>
+                            <div class="shortcut-item"><span>diff_m1</span><span>S(-) / W(+)</span></div>
+                            <div class="shortcut-item"><span>diff_m2</span><span>Q(-) / E(+)</span></div>
                             <div class="shortcut-item"><span>gripper</span><span>T(-) / G(+)</span></div>
                         </div>
                     </div>
@@ -497,12 +503,12 @@
                     <div class="keyboard-shortcuts-section">
                         <h4 class="shortcut-header">Keyboard Shortcuts (IK Mode)</h4>
                         <div class="shortcuts-list">
-                            <div class="shortcut-item"><span>X Axis</span><span>Q(-) / W(+)</span></div>
-                            <div class="shortcut-item"><span>Y Axis</span><span>A(-) / S(+)</span></div>
-                            <div class="shortcut-item"><span>Z Axis</span><span>Z(-) / X(+)</span></div>
-                            <div class="shortcut-item"><span>Roll</span><span>E(-) / R(+)</span></div>
-                            <div class="shortcut-item"><span>Pitch</span><span>D(-) / F(+)</span></div>
-                            <div class="shortcut-item"><span>Yaw</span><span>C(-) / V(+)</span></div>
+                            <div class="shortcut-item"><span>X Axis</span><span>J(-) / L(+)</span></div>
+                            <div class="shortcut-item"><span>Y Axis</span><span>K(-) / I(+)</span></div>
+                            <div class="shortcut-item"><span>Z Axis</span><span>U(-) / O(+)</span></div>
+                            <div class="shortcut-item"><span>Roll</span><span>A(-) / D(+)</span></div>
+                            <div class="shortcut-item"><span>Pitch</span><span>S(-) / W(+)</span></div>
+                            <div class="shortcut-item"><span>Yaw</span><span>Q(-) / E(+)</span></div>
                         </div>
                     </div>
                 </div>
@@ -793,12 +799,12 @@
             if (key >= '1' && key <= '5') return;
 
             const keyMap = {
-                'q': 0, 'w': 1,
-                'a': 2, 's': 3,
-                'z': 4, 'x': 5,
-                'e': 6, 'r': 7,
-                'd': 8, 'f': 9,
-                'c': 10,'v': 11,
+                'j': 0, 'l': 1,
+                'k': 2, 'i': 3,
+                'u': 4, 'o': 5,
+                'a': 6, 'd': 7,
+                's': 8, 'w': 9,
+                'q': 10,'e': 11,
                 't': 12,'g': 13
             };
 
