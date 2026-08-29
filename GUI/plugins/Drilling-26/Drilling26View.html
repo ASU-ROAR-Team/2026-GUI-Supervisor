@@ -106,24 +106,24 @@
             <!-- NEW: Dual Motor Control Section -->
             <div class="drilling-control-section">
                 <h2 class="drilling-section-header"><span class="drilling-section-header-icon">⚙️</span> Dual Motor Control</h2>
-                <p>Independent 3-state control for two drilling motors.</p>
+                <p>Independent duty cycle control for two drilling motors.</p>
                 
-                <div class="drilling-motor-group">
-                    <label class="drilling-mission-label">Motor 1</label>
-                    <div class="drilling-motor-buttons">
-                        <button id="motor1CW" class="drilling-control-button">CW</button>
-                        <button id="motor1OFF" class="drilling-control-button drilling-stop-button active">OFF</button>
-                        <button id="motor1CCW" class="drilling-control-button">CCW</button>
-                    </div>
+                <div class="drilling-motor-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; margin-top: 15px;">
+                    <label class="drilling-mission-label" style="min-width: 60px;">Motor 1</label>
+                    <input type="range" id="motor1DutySlider" min="-1023" max="1023" value="0" style="flex-grow: 1;">
+                    <span id="motor1DutyValue" style="min-width: 40px; text-align: right; color: #38bdf8;">0</span>
+                    <button id="motor1Stop" class="drilling-control-button drilling-stop-button" style="padding: 4px 12px;">Stop</button>
                 </div>
                 
-                <div class="drilling-motor-group" style="margin-top: 10px;">
-                    <label class="drilling-mission-label">Motor 2</label>
-                    <div class="drilling-motor-buttons">
-                        <button id="motor2CW" class="drilling-control-button">CW</button>
-                        <button id="motor2OFF" class="drilling-control-button drilling-stop-button active">OFF</button>
-                        <button id="motor2CCW" class="drilling-control-button">CCW</button>
-                    </div>
+                <div class="drilling-motor-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                    <label class="drilling-mission-label" style="min-width: 60px;">Motor 2</label>
+                    <input type="range" id="motor2DutySlider" min="-1023" max="1023" value="0" style="flex-grow: 1;">
+                    <span id="motor2DutyValue" style="min-width: 40px; text-align: right; color: #38bdf8;">0</span>
+                    <button id="motor2Stop" class="drilling-control-button drilling-stop-button" style="padding: 4px 12px;">Stop</button>
+                </div>
+                
+                <div style="text-align: center; margin-top: 10px;">
+                    <button id="stopAllMotors" class="drilling-control-button drilling-stop-button" style="width: 100%; padding: 8px; font-weight: bold; background-color: rgba(239, 68, 68, 0.2); border-color: #ef4444; color: #f87171;">Stop All Motors</button>
                 </div>
             </div>
         </div>
