@@ -37,16 +37,23 @@ def get_device_name(dev_path):
 
 def is_internal_webcam(dev_path, dev_name):
     """Identify if a video node is the base station's built-in laptop webcam."""
-    if dev_path in ['/dev/video0', '/dev/video1']:
-        return True
-        
     name_upper = dev_name.upper()
-    # Exclude specific internal laptop camera model signatures; keep USB webcams (C615, GENERAL WEBCAM, etc.)
+    
+    # Exclude specific internal laptop camera model signatures
     internal_keywords = ["INTEGRATED", "INTERNAL", "LAPTOP", "HP WIDE VISION", "FACETIME", "BUILT-IN"]
     for kw in internal_keywords:
         if kw in name_upper and "ROBOT" not in name_upper and "ZED" not in name_upper and "REALSENSE" not in name_upper:
             return True
-            
+
+    # If it's a known external USB camera, do NOT treat it as internal even if it's on video0
+    external_keywords = ["C615", "GENERAL WEBCAM", "USB", "REALSENSE", "ZED", "LOGITECH"]
+    for kw in external_keywords:
+        if kw in name_upper:
+            return False
+
+    if dev_path in ['/dev/video0', '/dev/video1']:
+        return True
+        
     return False
 
 def test_camera_node(dev):
