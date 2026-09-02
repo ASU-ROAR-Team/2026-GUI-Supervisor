@@ -229,6 +229,9 @@
                     } else if (msg.type === "arm_joint_feedback") {
                         const display = this.container.querySelector('#armJointFeedbackDisplay');
                         if (display) display.innerText = msg.data.map(v => v.toFixed(2)).join(', ');
+                    } else if (msg.type === "rock_storage") {
+                        const display = this.container.querySelector('#rockStorageDisplay');
+                        if (display) display.innerText = parseFloat(msg.data).toFixed(2);
                     }
                 } catch (e) {
                     console.error("[ArmControlFKView] Failed to parse message", e);
@@ -351,6 +354,10 @@
                         <div style="display: flex; justify-content: space-between;">
                             <span style="color: #94a3b8; font-size: 0.85rem; font-family: monospace;">/roar_robot_arm/joint_feedback:</span>
                             <span id="armJointFeedbackDisplay" style="color: #34d399; font-family: monospace; font-weight: bold;">Waiting...</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: #94a3b8; font-size: 0.85rem; font-family: monospace;">rock storage (/load__cell2_topic):</span>
+                            <span id="rockStorageDisplay" style="color: #34d399; font-family: monospace; font-weight: bold;">Waiting...</span>
                         </div>
                     </div>
                 </div>
