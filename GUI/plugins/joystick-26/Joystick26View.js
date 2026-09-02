@@ -32,9 +32,13 @@
             // Rover state (requires active mission to unlock, just like drilling)
             this.currentRoverState = { rover_state: 'IDLE', active_mission: '' };
 
+            this.keys = { w: false, a: false, s: false, d: false };
+
             this.onMouseDown      = this.onMouseDown.bind(this);
             this.onMouseMove      = this.onMouseMove.bind(this);
             this.onMouseUp        = this.onMouseUp.bind(this);
+            this.onKeyDown        = this.onKeyDown.bind(this);
+            this.onKeyUp          = this.onKeyUp.bind(this);
             this.updateSpeedValues = this.updateSpeedValues.bind(this);
         }
 
@@ -173,6 +177,8 @@
             this.canvas.addEventListener('mousedown', this.onMouseDown);
             document.addEventListener('mousemove',    this.onMouseMove);
             document.addEventListener('mouseup',      this.onMouseUp);
+            document.addEventListener('keydown',      this.onKeyDown);
+            document.addEventListener('keyup',        this.onKeyUp);
 
             this.canvas.addEventListener('touchstart', (e) => {
                 e.preventDefault();
@@ -206,6 +212,8 @@
             document.removeEventListener('mousemove',    this.onMouseMove);
             document.removeEventListener('mouseup',      this.onMouseUp);
             document.removeEventListener('touchend',     this.onMouseUp);
+            document.removeEventListener('keydown',      this.onKeyDown);
+            document.removeEventListener('keyup',        this.onKeyUp);
         }
 
         onMouseDown(event) {
@@ -228,10 +236,48 @@
             if (!this.isDragging) return;
             this.isDragging          = false;
             this.canvas.style.cursor = 'grab';
-            this.thumbX              = this.joystickCenterX;
-            this.thumbY              = this.joystickCenterY;
+            this.updateFromKeyboard();
+        }
+
+        onKeyDown(event) {
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+            const key = event.key.toLowerCase();
+            if (this.keys.hasOwnProperty(key)) {
+                if (!this.keys[key]) {
+                    this.keys[key] = true;
+                    this.updateFromKeyboard();
+                }
+            }
+        }
+
+        onKeyUp(event) {
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+            const key = event.key.toLowerCase();
+            if (this.keys.hasOwnProperty(key)) {
+                if (this.keys[key]) {
+                    this.keys[key] = false;
+                    this.updateFromKeyboard();
+                }
+            }
+        }
+
+        updateFromKeyboard() {
+            if (this.isDragging) return;
+
+            let normX = (this.keys.d ? 1 : 0) - (this.keys.a ? 1 : 0);
+            let normY = (this.keys.w ? 1 : 0) - (this.keys.s ? 1 : 0);
+
+            const mag = Math.sqrt(normX * normX + normY * normY);
+            if (mag > 1) {
+                normX /= mag;
+                normY /= mag;
+            }
+
+            this.thumbX = this.joystickCenterX + normX * this.joystickRadius;
+            this.thumbY = this.joystickCenterY - normY * this.joystickRadius;
             this.drawJoystick();
-            this.publishTwist(0, 0);
+
+            this.publishTwist(normX, normY);
         }
 
         updateThumbPosition(event) {
