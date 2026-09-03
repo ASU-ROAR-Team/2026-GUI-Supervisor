@@ -11,9 +11,8 @@ services:
       - ROS_LOCALHOST_ONLY=${ROS_LOCALHOST_ONLY:-1}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      - CYCLONEDDS_URI=<CycloneDDS><Domain id="any"><General><AllowMulticast>false</AllowMulticast></General><Discovery><Peers><Peer address="127.0.0.1"/></Peers><ParticipantIndex>auto</ParticipantIndex></Discovery></Domain></CycloneDDS>
       - PYTHONUNBUFFERED=1
-    command: ros2 launch supervisor multi_launch.py
+    command: /bin/bash -c "echo '<CycloneDDS><Domain id=\"any\"><General><NetworkInterfaceAddress>lo</NetworkInterfaceAddress><AllowMulticast>false</AllowMulticast></General><Discovery><Peers><Peer address=\"127.0.0.1\"/></Peers><ParticipantIndex>auto</ParticipantIndex></Discovery></Domain></CycloneDDS>' > /tmp/cyclonedds.xml && export CYCLONEDDS_URI=file:///tmp/cyclonedds.xml && source /opt/ros/humble/setup.bash && ros2 launch supervisor multi_launch.py"
 
   web_camera_server:
     build:
@@ -42,6 +41,5 @@ services:
       - ROS_LOCALHOST_ONLY=${ROS_LOCALHOST_ONLY:-1}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      - CYCLONEDDS_URI=<CycloneDDS><Domain id="any"><General><AllowMulticast>false</AllowMulticast></General><Discovery><Peers><Peer address="127.0.0.1"/></Peers><ParticipantIndex>auto</ParticipantIndex></Discovery></Domain></CycloneDDS>
       - PYTHONUNBUFFERED=1
-    command: /bin/bash -c "source /opt/ros/humble/setup.bash && python3 ws_ros2_bridge.py"
+    command: /bin/bash -c "echo '<CycloneDDS><Domain id=\"any\"><General><NetworkInterfaceAddress>lo</NetworkInterfaceAddress><AllowMulticast>false</AllowMulticast></General><Discovery><Peers><Peer address=\"127.0.0.1\"/></Peers><ParticipantIndex>auto</ParticipantIndex></Discovery></Domain></CycloneDDS>' > /tmp/cyclonedds.xml && export CYCLONEDDS_URI=file:///tmp/cyclonedds.xml && source /opt/ros/humble/setup.bash && python3 ws_ros2_bridge.py"
