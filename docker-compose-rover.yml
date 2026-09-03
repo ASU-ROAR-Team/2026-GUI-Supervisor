@@ -7,11 +7,13 @@ services:
     container_name: supervisor_container
     volumes:
       - /dev:/dev
+      - ./cyclonedds.xml:/cyclonedds.xml
     environment:
       - ROS_LOCALHOST_ONLY=${ROS_LOCALHOST_ONLY:-1}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
       - PYTHONUNBUFFERED=1
+      - CYCLONEDDS_URI=file:///cyclonedds.xml
     command: ros2 launch supervisor multi_launch.py
 
   web_camera_server:
@@ -23,10 +25,12 @@ services:
     volumes:
       - ./GUI:/app
       - /dev:/dev
+      - ./cyclonedds.xml:/cyclonedds.xml
     environment:
       - PYTHONUNBUFFERED=1
       - CAMERA_MODE=${CAMERA_MODE:-gray}
       - CAMERA_QUALITY=${CAMERA_QUALITY:-50}
+      - CYCLONEDDS_URI=file:///cyclonedds.xml
     command: python3 web_camera_server.py
 
   ws_ros2_bridge:
@@ -37,9 +41,11 @@ services:
     container_name: ws_ros2_bridge
     volumes:
       - ./GUI:/app
+      - ./cyclonedds.xml:/cyclonedds.xml
     environment:
       - ROS_LOCALHOST_ONLY=${ROS_LOCALHOST_ONLY:-1}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
       - PYTHONUNBUFFERED=1
+      - CYCLONEDDS_URI=file:///cyclonedds.xml
     command: /bin/bash -c "source /opt/ros/humble/setup.bash && python3 ws_ros2_bridge.py"

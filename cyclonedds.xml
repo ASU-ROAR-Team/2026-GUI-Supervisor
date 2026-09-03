@@ -4,5 +4,8 @@
     <General>
       <AllowMulticast>spdp</AllowMulticast>
     </General>
+    <Discovery>
+      <MaxAutoParticipantIndex>250</MaxAutoParticipantIndex>
+    </Discovery>
   </Domain>
 </CycloneDDS>
