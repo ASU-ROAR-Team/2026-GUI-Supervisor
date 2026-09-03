@@ -267,7 +267,7 @@
                     getVal('j0'), getVal('j1'), 
                     getVal('j2'), getVal('j3'),
                     getVal('diff_m1') + getVal('diff_m2'),
-                    getVal('diff_m1') + getVal('diff_m2'),
+                    getVal('diff_m1') - getVal('diff_m2'),
                     this.liquidSamplingValue
                 ];
                 const gripperData = getVal('gripper_servo');
