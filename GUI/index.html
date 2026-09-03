@@ -103,9 +103,10 @@
               openmct.time.timeSystem('utc', bounds);
           }
           if (typeof openmct.time.setClock === 'function') {
-              openmct.time.setClock('local', { start: -15 * 60 * 1000, end: 0 });
+              openmct.time.setClock('local');
+              openmct.time.clockOffsets({ start: -15 * 60 * 1000, end: 0 });
           } else if (typeof openmct.time.clock === 'function') {
-              openmct.time.clock('local', { start: -15 * 60 * 1000, end: 0 });
+              openmct.time.clock('local');
           }
           if (typeof openmct.time.setMode === 'function') {
               openmct.time.setMode('realtime');
