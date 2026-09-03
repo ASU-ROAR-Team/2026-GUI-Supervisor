@@ -294,7 +294,8 @@ class WSROS2Bridge(Node):
                 data = msg.get("data", [])
                 if len(data) >= 2:
                     motor_msg = Int32MultiArray()
-                    motor_msg.data = [int(x) for x in data[:2]]
+                    num_elements = min(len(data), 3)
+                    motor_msg.data = [int(x) for x in data[:num_elements]]
                     self.drilling_motors_pub.publish(motor_msg)
 
             elif msg_type == "wheel_rad_per_sec":

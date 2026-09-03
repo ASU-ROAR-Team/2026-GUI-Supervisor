@@ -121,6 +121,13 @@
                     <span id="motor2DutyValue" style="min-width: 40px; text-align: right; color: #38bdf8;">0</span>
                     <button id="motor2Stop" class="drilling-control-button drilling-stop-button" style="padding: 4px 12px;">Stop</button>
                 </div>
+
+                <div class="drilling-motor-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                    <label class="drilling-mission-label" style="min-width: 60px;">Servo</label>
+                    <input type="range" id="servoDutySlider" min="0" max="180" value="0" style="flex-grow: 1;">
+                    <span id="servoDutyValue" style="min-width: 40px; text-align: right; color: #38bdf8;">0</span>
+                    <button id="servoStop" class="drilling-control-button drilling-stop-button" style="padding: 4px 12px;">Stop</button>
+                </div>
                 
                 <div style="text-align: center; margin-top: 10px;">
                     <button id="stopAllMotors" class="drilling-control-button drilling-stop-button" style="width: 100%; padding: 8px; font-weight: bold; background-color: rgba(239, 68, 68, 0.2); border-color: #ef4444; color: #f87171;">Stop All Motors</button>

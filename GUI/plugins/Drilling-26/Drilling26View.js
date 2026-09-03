@@ -23,7 +23,8 @@
             // NEW: State for dual motors. 1 = CW, 0 = OFF, -1 = CCW
             this.dualMotorsState = {
                 motor1: 0, 
-                motor2: 0
+                motor2: 0,
+                servo: 0
             };
 
             this.movementState = {
@@ -85,6 +86,10 @@
             this.motor2DutySlider = null;
             this.motor2DutyValue  = null;
             this.motor2StopBtn    = null;
+
+            this.servoDutySlider = null;
+            this.servoDutyValue  = null;
+            this.servoStopBtn    = null;
 
             this.stopAllMotorsBtn = null;
             this.currentDisplay = null;
@@ -165,7 +170,7 @@
 
             const payload = {
                 type: 'drilling_motors_cmd',
-                data: [this.dualMotorsState.motor1, this.dualMotorsState.motor2]
+                data: [this.dualMotorsState.motor1, this.dualMotorsState.motor2, this.dualMotorsState.servo]
             };
             this.ws.send(JSON.stringify(payload));
             console.log('[Drilling26View] Sent motor command:', payload);
@@ -423,6 +428,10 @@
             this.motor2DutyValue  = this.element.querySelector('#motor2DutyValue');
             this.motor2StopBtn    = this.element.querySelector('#motor2Stop');
 
+            this.servoDutySlider  = this.element.querySelector('#servoDutySlider');
+            this.servoDutyValue   = this.element.querySelector('#servoDutyValue');
+            this.servoStopBtn     = this.element.querySelector('#servoStop');
+
             this.stopAllMotorsBtn = this.element.querySelector('#stopAllMotors');
 
             this.currentDisplay = this.element.querySelector('#drillingCurrent');
@@ -646,15 +655,36 @@
                 });
             }
 
+            // NEW: Servo Listeners
+            if (this.servoDutySlider) {
+                this.servoDutySlider.addEventListener('input', (e) => {
+                    const val = parseInt(e.target.value, 10);
+                    this.dualMotorsState.servo = val;
+                    if (this.servoDutyValue) this.servoDutyValue.textContent = val;
+                    this.publishMotorCommand();
+                });
+            }
+            if (this.servoStopBtn) {
+                this.servoStopBtn.addEventListener('click', () => {
+                    this.dualMotorsState.servo = 0;
+                    if (this.servoDutySlider) this.servoDutySlider.value = 0;
+                    if (this.servoDutyValue) this.servoDutyValue.textContent = '0';
+                    this.publishMotorCommand();
+                });
+            }
+
             // Stop All Motors
             if (this.stopAllMotorsBtn) {
                 this.stopAllMotorsBtn.addEventListener('click', () => {
                     this.dualMotorsState.motor1 = 0;
                     this.dualMotorsState.motor2 = 0;
+                    this.dualMotorsState.servo = 0;
                     if (this.motor1DutySlider) this.motor1DutySlider.value = 0;
                     if (this.motor1DutyValue) this.motor1DutyValue.textContent = '0';
                     if (this.motor2DutySlider) this.motor2DutySlider.value = 0;
                     if (this.motor2DutyValue) this.motor2DutyValue.textContent = '0';
+                    if (this.servoDutySlider) this.servoDutySlider.value = 0;
+                    if (this.servoDutyValue) this.servoDutyValue.textContent = '0';
                     this.publishMotorCommand();
                 });
             }
@@ -684,7 +714,7 @@
             });
 
             // Handle the dual motors disabling
-            [this.motor1DutySlider, this.motor1StopBtn, this.motor2DutySlider, this.motor2StopBtn, this.stopAllMotorsBtn].forEach(el => {
+            [this.motor1DutySlider, this.motor1StopBtn, this.motor2DutySlider, this.motor2StopBtn, this.servoDutySlider, this.servoStopBtn, this.stopAllMotorsBtn].forEach(el => {
                 if(el) el.disabled = !enabled;
             });
 
