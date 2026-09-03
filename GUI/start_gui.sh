@@ -34,7 +34,7 @@ if [ "$1" == "--rover" ]; then
     fi
     echo "==========================================="
 
-    docker compose -f docker-compose-rover.yml up -d
+    docker compose -f docker-compose-rover.yml up -d --remove-orphans
 
 elif [ "$1" == "--gui" ]; then
     # ── Base Station side ────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ elif [ "$1" == "--gui" ]; then
         echo "  Deploying Base Station Configuration (OpenMCT GUI)"
         echo "  Rover IP: $ROVER_IP_ARG  (from command-line argument)"
         echo "==========================================="
-        ROVER_IP="$ROVER_IP_ARG" docker compose -f docker-compose-gui.yml up -d
+        ROVER_IP="$ROVER_IP_ARG" docker compose -f docker-compose-gui.yml up -d --remove-orphans
     else
         # No argument — use whatever ROVER_IP is set in .env
         FALLBACK_IP=$(grep '^ROVER_IP=' "$PROJECT_ROOT/.env" 2>/dev/null | cut -d'=' -f2)
@@ -55,7 +55,7 @@ elif [ "$1" == "--gui" ]; then
         echo "  Rover IP: ${FALLBACK_IP:-not set}  (from .env — pass IP as 2nd arg to override)"
         echo "  Usage: ./GUI/start_gui.sh --gui <ROVER_IP>"
         echo "==========================================="
-        docker compose -f docker-compose-gui.yml up -d
+        docker compose -f docker-compose-gui.yml up -d --remove-orphans
     fi
 
 else
