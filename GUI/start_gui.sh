@@ -33,7 +33,7 @@ if [ "$1" == "--rover" ]; then
         echo "  ⚠  Could not auto-detect IP. Run 'hostname -I' to find it."
     fi
     echo "==========================================="
-
+    docker compose -f docker-compose-rover.yml down --remove-orphans
     docker compose -f docker-compose-rover.yml up -d
 
 elif [ "$1" == "--gui" ]; then
@@ -46,6 +46,7 @@ elif [ "$1" == "--gui" ]; then
         echo "  Deploying Base Station Configuration (OpenMCT GUI)"
         echo "  Rover IP: $ROVER_IP_ARG  (from command-line argument)"
         echo "==========================================="
+        ROVER_IP="$ROVER_IP_ARG" docker compose -f docker-compose-gui.yml down --remove-orphans
         ROVER_IP="$ROVER_IP_ARG" docker compose -f docker-compose-gui.yml up -d
     else
         # No argument — use whatever ROVER_IP is set in .env
@@ -55,6 +56,7 @@ elif [ "$1" == "--gui" ]; then
         echo "  Rover IP: ${FALLBACK_IP:-not set}  (from .env — pass IP as 2nd arg to override)"
         echo "  Usage: ./GUI/start_gui.sh --gui <ROVER_IP>"
         echo "==========================================="
+        docker compose -f docker-compose-gui.yml down --remove-orphans
         docker compose -f docker-compose-gui.yml up -d
     fi
 
