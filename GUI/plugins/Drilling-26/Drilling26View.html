@@ -103,23 +103,37 @@
             <!-- NEW: Dual Motor Control Section -->
             <div class="drilling-control-section">
                 <h2 class="drilling-section-header"><span class="drilling-section-header-icon">⚙️</span> Dual Motor Control</h2>
-                <p>Independent 3-state control for two drilling motors.</p>
-                
+                <p>Independent signed speed control for two drilling motors.</p>
+
                 <div class="drilling-motor-group">
-                    <label class="drilling-mission-label">Motor 1</label>
-                    <div class="drilling-motor-buttons">
-                        <button id="motor1CW" class="drilling-control-button">CW</button>
-                        <button id="motor1OFF" class="drilling-control-button drilling-stop-button active">OFF</button>
-                        <button id="motor1CCW" class="drilling-control-button">CCW</button>
+                    <label for="motor1Slider" class="drilling-mission-label">Motor 1</label>
+                    <div class="drilling-slider-wrapper">
+                        <input type="range" id="motor1Slider" class="drilling-location-slider"
+                               min="-1000" max="1000" step="1" value="0">
+                        <div class="drilling-slider-value-display">
+                            <span id="motor1Value">0</span>
+                        </div>
+                    </div>
+                    <div class="drilling-slider-labels">
+                        <span>-1000</span>
+                        <span>0</span>
+                        <span>+1000</span>
                     </div>
                 </div>
-                
+
                 <div class="drilling-motor-group" style="margin-top: 10px;">
-                    <label class="drilling-mission-label">Motor 2</label>
-                    <div class="drilling-motor-buttons">
-                        <button id="motor2CW" class="drilling-control-button">CW</button>
-                        <button id="motor2OFF" class="drilling-control-button drilling-stop-button active">OFF</button>
-                        <button id="motor2CCW" class="drilling-control-button">CCW</button>
+                    <label for="motor2Slider" class="drilling-mission-label">Motor 2</label>
+                    <div class="drilling-slider-wrapper">
+                        <input type="range" id="motor2Slider" class="drilling-location-slider"
+                               min="-1000" max="1000" step="1" value="0">
+                        <div class="drilling-slider-value-display">
+                            <span id="motor2Value">0</span>
+                        </div>
+                    </div>
+                    <div class="drilling-slider-labels">
+                        <span>-1000</span>
+                        <span>0</span>
+                        <span>+1000</span>
                     </div>
                 </div>
             </div>

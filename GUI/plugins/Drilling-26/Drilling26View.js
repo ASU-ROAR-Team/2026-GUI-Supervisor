@@ -20,7 +20,7 @@
                 stop_enabled: false
             };
 
-            // NEW: State for dual motors. 1 = CW, 0 = OFF, -1 = CCW
+            // NEW: State for dual motors. Signed speed, -1000..1000. 0 = stop, positive = CW, negative = CCW
             this.dualMotorsState = {
                 motor1: 0, 
                 motor2: 0
@@ -78,8 +78,10 @@
             this.loadCellToggleSwitch    = null;
 
             // NEW: Dual Motor DOM refs
-            this.motor1Btns = { cw: null, off: null, ccw: null };
-            this.motor2Btns = { cw: null, off: null, ccw: null };
+            this.motor1Slider  = null;
+            this.motor1ValueEl = null;
+            this.motor2Slider  = null;
+            this.motor2ValueEl = null;
             this.currentDisplay = null;
             this.encoderDisplay = null;
         }
@@ -156,9 +158,10 @@
         publishMotorCommand() {
             if (!this.wsConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
+            const clamp = (v) => Math.max(-1000, Math.min(1000, Math.round(Number(v) || 0)));
             const payload = {
                 type: 'drilling_motors_cmd',
-                data: [this.dualMotorsState.motor1, this.dualMotorsState.motor2]
+                data: [clamp(this.dualMotorsState.motor1), clamp(this.dualMotorsState.motor2)]
             };
             this.ws.send(JSON.stringify(payload));
             console.log('[Drilling26View] Sent motor command:', payload);
@@ -406,13 +409,11 @@
             this.loadCellToggleSwitch    = this.element.querySelector('#drillingLoadCellToggle');
 
             // NEW: Dual Motor & Sensor UI refs
-            this.motor1Btns.cw  = this.element.querySelector('#motor1CW');
-            this.motor1Btns.off = this.element.querySelector('#motor1OFF');
-            this.motor1Btns.ccw = this.element.querySelector('#motor1CCW');
-            
-            this.motor2Btns.cw  = this.element.querySelector('#motor2CW');
-            this.motor2Btns.off = this.element.querySelector('#motor2OFF');
-            this.motor2Btns.ccw = this.element.querySelector('#motor2CCW');
+            this.motor1Slider  = this.element.querySelector('#motor1Slider');
+            this.motor1ValueEl = this.element.querySelector('#motor1Value');
+
+            this.motor2Slider  = this.element.querySelector('#motor2Slider');
+            this.motor2ValueEl = this.element.querySelector('#motor2Value');
 
             this.currentDisplay = this.element.querySelector('#drillingCurrent');
             this.encoderDisplay = this.element.querySelector('#drillingEncoder');
@@ -596,41 +597,29 @@
             }
 
             // NEW: Motor 1 Listeners
-            this.bindMotorButtons(this.motor1Btns, 'motor1');
-            
+            this.bindMotorSlider(this.motor1Slider, this.motor1ValueEl, 'motor1');
+
             // NEW: Motor 2 Listeners
-            this.bindMotorButtons(this.motor2Btns, 'motor2');
+            this.bindMotorSlider(this.motor2Slider, this.motor2ValueEl, 'motor2');
         }
 
-        // NEW: Helper method to handle CW/OFF/CCW buttons dynamically
-        bindMotorButtons(btns, motorKey) {
-            const updateUI = (state) => {
-                btns.cw.classList.toggle('active', state === 1);
-                btns.off.classList.toggle('active', state === 0);
-                btns.ccw.classList.toggle('active', state === 2);
-            };
+        // NEW: Helper method to handle the signed -1000..1000 motor sliders.
+        // Live label updates while dragging; publish only on release (change).
+        bindMotorSlider(slider, valueEl, motorKey) {
+            if (!slider) return;
 
-            if (btns.cw) {
-                btns.cw.addEventListener('click', () => {
-                    this.dualMotorsState[motorKey] = 1;
-                    updateUI(1);
-                    this.publishMotorCommand();
-                });
-            }
-            if (btns.off) {
-                btns.off.addEventListener('click', () => {
-                    this.dualMotorsState[motorKey] = 0;
-                    updateUI(0);
-                    this.publishMotorCommand();
-                });
-            }
-            if (btns.ccw) {
-                btns.ccw.addEventListener('click', () => {
-                    this.dualMotorsState[motorKey] = 2;
-                    updateUI(-1);
-                    this.publishMotorCommand();
-                });
-            }
+            slider.addEventListener('input', (e) => {
+                const value = Math.round(parseFloat(e.target.value) || 0);
+                this.dualMotorsState[motorKey] = value;
+                if (valueEl) valueEl.textContent = value;
+            });
+
+            slider.addEventListener('change', (e) => {
+                const value = Math.round(parseFloat(e.target.value) || 0);
+                this.dualMotorsState[motorKey] = value;
+                if (valueEl) valueEl.textContent = value;
+                this.publishMotorCommand();
+            });
         }
 
         updateConnectionStatus(connected) {
@@ -657,8 +646,8 @@
             });
 
             // Handle the dual motors disabling
-            Object.values(this.motor1Btns).forEach(btn => { if(btn) btn.disabled = !enabled; });
-            Object.values(this.motor2Btns).forEach(btn => { if(btn) btn.disabled = !enabled; });
+            if (this.motor1Slider) this.motor1Slider.disabled = !enabled;
+            if (this.motor2Slider) this.motor2Slider.disabled = !enabled;
 
             if (this.speedSlider) {
                 this.speedSlider.disabled = !enabled;
